@@ -20,4 +20,5 @@ export interface CommonCdnSiteHostingProps {
   websiteErrorDocument?: string;
   websiteIndexDocument: string;
   securityPolicyProtocol?: cloudfront.SecurityPolicyProtocol;
+  bucketDeploymentMemoryLimit?: number;
 }
