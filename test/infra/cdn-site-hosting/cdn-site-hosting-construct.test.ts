@@ -84,6 +84,52 @@ describe("CdnSiteHostingConstruct", () => {
         },
       );
     });
+
+    test("gives the bucket deployment lambda 1024MB of memory by default", () => {
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        MemorySize: 1024,
+      });
+    });
+  });
+
+  describe("When bucketDeploymentMemoryLimit is provided", () => {
+    test("uses it for the bucket deployment lambda with sources", () => {
+      const app = new cdk.App();
+      const stack = new cdk.Stack(app, "TestStack", { env: testEnv });
+      new CdnSiteHostingConstruct(stack, "MyTestConstruct", {
+        certificateArn: fakeCertificateArn,
+        siteSubDomain: fakeSiteSubDomain,
+        domainName: fakeDomain,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        sources: [s3deploy.Source.asset("./")],
+        websiteIndexDocument: "index.html",
+        bucketDeploymentMemoryLimit: 2048,
+      });
+
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        MemorySize: 2048,
+      });
+    });
+
+    test("uses it for the bucket deployment lambda with sourcesWithDeploymentOptions", () => {
+      const app = new cdk.App();
+      const stack = new cdk.Stack(app, "TestStack", { env: testEnv });
+      new CdnSiteHostingConstruct(stack, "MyTestConstruct", {
+        certificateArn: fakeCertificateArn,
+        siteSubDomain: fakeSiteSubDomain,
+        domainName: fakeDomain,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        sourcesWithDeploymentOptions: [
+          { sources: [s3deploy.Source.asset("./")] },
+        ],
+        websiteIndexDocument: "index.html",
+        bucketDeploymentMemoryLimit: 2048,
+      });
+
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        MemorySize: 2048,
+      });
+    });
   });
 
   describe("When no error document is provided", () => {
@@ -314,6 +360,12 @@ describe("CdnSiteHostingConstruct", () => {
       );
       expect(secondDeployment.DependsOn).toBeDefined();
       expect(secondDeployment.DependsOn).toContain(firstDeploymentId);
+    });
+
+    test("gives the bucket deployment lambda 1024MB of memory by default", () => {
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        MemorySize: 1024,
+      });
     });
   });
 

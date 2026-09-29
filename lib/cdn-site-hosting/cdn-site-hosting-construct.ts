@@ -135,6 +135,7 @@ export class CdnSiteHostingConstruct extends Construct {
             {
               cacheControl,
               sources: sources,
+              memoryLimit: props.bucketDeploymentMemoryLimit ?? 1024,
               prune: isSingleDeploymentStep,
               destinationBucket: this.s3Bucket,
               distribution: isInvalidationRequired
@@ -160,6 +161,7 @@ export class CdnSiteHostingConstruct extends Construct {
     } else if (props.sources) {
       // multiple sources, with default cache-control and wholesale invalidation
       new s3deploy.BucketDeployment(this, "DeployAndInvalidate", {
+        memoryLimit: props.bucketDeploymentMemoryLimit ?? 1024,
         sources: props.sources,
         destinationBucket: this.s3Bucket,
         distribution: this.cloudfrontWebDistribution,
