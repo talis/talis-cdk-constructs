@@ -65,6 +65,14 @@ export interface LambdaWorkerProps {
     Partial<ContainerFromEcrLambdaProps> &
     Partial<ContainerFromImageAssetLambdaProps>;
 
+  // Optional larger lambdas a failed job escalates to, in order. Each tier
+  // gets its own queue (named with a -01, -02... suffix) and the last tier's
+  // failures land on the DLQ. Unspecified values are taken from lambdaProps.
+  fallbacks?: Array<{
+    memorySize?: number;
+    ephemeralStorageSize?: cdk.Size;
+  }>;
+
   // Queue Properties
   queueProps?: {
     // The maximum number of times a message is re-tried before

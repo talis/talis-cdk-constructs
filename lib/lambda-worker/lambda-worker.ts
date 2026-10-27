@@ -90,6 +90,33 @@ export class LambdaWorker extends Construct {
 
     const fifo = this.isFifo(props);
 
+    // One lambda + queue per tier: the default, then each fallback.
+    // A tier's queue dead-letters to the next tier's queue; the last one to the DLQ.
+    const fallbacks = props.fallbacks ?? [];
+    for (const fallback of fallbacks) {
+      if (fallback.memorySize && fallback.memorySize < MINIMUM_MEMORY_SIZE) {
+        throw new Error(
+          `Invalid fallbacks.memorySize value of ${fallback.memorySize}. Minimum value is ${MINIMUM_MEMORY_SIZE}`,
+        );
+      }
+    }
+    const tiers: LambdaWorkerProps[] = [{}, ...fallbacks].map(
+      (overrides, tierIndex) => ({
+        ...props,
+        name:
+          tierIndex === 0
+            ? props.name
+            : `${props.name}-${String(tierIndex).padStart(2, "0")}`,
+        lambdaProps: {
+          ...props.lambdaProps,
+          ...overrides,
+          // All but the last tier hand the job on instead of retrying
+          retryAttempts:
+            tierIndex < fallbacks.length ? 1 : props.lambdaProps.retryAttempts,
+        },
+      }),
+    );
+
     // Create both the main queue and the dead letter queue
     let dlqName = `${props.name}-dlq`;
     if (fifo) {
@@ -102,21 +129,27 @@ export class LambdaWorker extends Construct {
       fifo: fifo ? true : undefined, // This is required for fifo, but has to be undefined not flase for non-fifo
     });
 
-    let queueName = `${props.name}-queue`;
-    if (fifo) {
-      queueName = `${queueName}.fifo`;
+    const queues: sqs.Queue[] = [];
+    let deadLetterQueue = lambdaDLQ;
+    for (const tier of [...tiers].reverse()) {
+      let queueName = `${tier.name}-queue`;
+      if (fifo) {
+        queueName = `${queueName}.fifo`;
+      }
+      deadLetterQueue = new sqs.Queue(this, `${tier.name}-queue`, {
+        queueName,
+        visibilityTimeout: queueTimeout,
+        retentionPeriod: cdk.Duration.days(14),
+        deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount },
+        fifo: fifo ? true : undefined, // This is required for fifo, but has to be undefined not flase for non-fifo
+        contentBasedDeduplication:
+          props.queueProps && props.queueProps.contentBasedDeduplication
+            ? props.queueProps.contentBasedDeduplication
+            : undefined,
+      });
+      queues.unshift(deadLetterQueue);
     }
-    this.lambdaQueue = new sqs.Queue(this, `${props.name}-queue`, {
-      queueName,
-      visibilityTimeout: queueTimeout,
-      retentionPeriod: cdk.Duration.days(14),
-      deadLetterQueue: { queue: lambdaDLQ, maxReceiveCount: maxReceiveCount },
-      fifo: fifo ? true : undefined, // This is required for fifo, but has to be undefined not flase for non-fifo
-      contentBasedDeduplication:
-        props.queueProps && props.queueProps.contentBasedDeduplication
-          ? props.queueProps.contentBasedDeduplication
-          : undefined,
-    });
+    this.lambdaQueue = queues[0];
     this.lambdaQueueUrl = this.lambdaQueue.queueUrl;
     this.lambdaQueueArn = this.lambdaQueue.queueArn;
 
@@ -134,32 +167,36 @@ export class LambdaWorker extends Construct {
       );
     }
 
-    // Create the lambda
-    const lambdaWorker: lambda.Function = this.createLambdaFunction(props);
+    // Create the lambdas
+    tiers.forEach((tier, tierIndex) => {
+      const lambdaWorker: lambda.Function = this.createLambdaFunction(tier);
 
-    if (props.lambdaProps.policyStatements) {
-      for (const statement of props.lambdaProps.policyStatements) {
-        // Changed to addToPrincipalPolicy - is this correct?
-        lambdaWorker.role?.addToPrincipalPolicy(statement);
+      if (props.lambdaProps.policyStatements) {
+        for (const statement of props.lambdaProps.policyStatements) {
+          // Changed to addToPrincipalPolicy - is this correct?
+          lambdaWorker.role?.addToPrincipalPolicy(statement);
+        }
       }
-    }
 
-    // Add main queue and DLQ as event sources to the lambda
-    // By default, the main queue is enabled and the DLQ is disabled
-    lambdaWorker.addEventSource(
-      new SqsEventSource(this.lambdaQueue, {
-        enabled: props.lambdaProps.enableQueue ?? true,
-        batchSize: 1,
-        maxConcurrency: props.lambdaProps.queueMaxConcurrency,
-      }),
-    );
-    lambdaWorker.addEventSource(
-      new SqsEventSource(lambdaDLQ, {
-        enabled: false,
-        batchSize: 1,
-        maxConcurrency: props.lambdaProps.queueMaxConcurrency,
-      }),
-    );
+      // Each tier consumes its own queue. The last tier also gets the DLQ
+      // as a disabled event source so failed jobs can be replayed.
+      lambdaWorker.addEventSource(
+        new SqsEventSource(queues[tierIndex], {
+          enabled: props.lambdaProps.enableQueue ?? true,
+          batchSize: 1,
+          maxConcurrency: props.lambdaProps.queueMaxConcurrency,
+        }),
+      );
+      if (tierIndex === tiers.length - 1) {
+        lambdaWorker.addEventSource(
+          new SqsEventSource(lambdaDLQ, {
+            enabled: false,
+            batchSize: 1,
+            maxConcurrency: props.lambdaProps.queueMaxConcurrency,
+          }),
+        );
+      }
+    });
 
     // Add alerting
 
