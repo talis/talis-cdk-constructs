@@ -4,7 +4,7 @@
     "config:recommended",
     ":dependencyDashboard",
     ":enableVulnerabilityAlerts",
-    "npm:unpublishSafe",
+    "security:minimumReleaseAgeNpm",
     ":maintainLockFilesWeekly",
     "schedule:weekends"
   ],
@@ -15,27 +15,50 @@
   "autoApprove": true,
   "automergeType": "pr",
   "automerge": true,
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "packageRules": [
     {
-      "matchDepTypes": ["dependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": [
+        "dependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "production dependencies (minor/patch)",
       "groupSlug": "prod-minor-patch"
     },
     {
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "dev dependencies (minor/patch)",
       "groupSlug": "dev-minor-patch"
     },
     {
       "groupName": "ESLint",
-      "matchPackageNames": ["/^typescript-eslint/", "/^eslint/"]
+      "matchPackageNames": [
+        "/^typescript-eslint/",
+        "/^eslint/"
+      ]
     },
     {
-      "matchPackageNames": ["node", "cimg/node", "@types/node"],
-      "matchUpdateTypes": ["major", "minor", "patch"],
+      "matchPackageNames": [
+        "node",
+        "cimg/node",
+        "@types/node"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
       "groupName": "node dependencies",
       "groupSlug": "node-all"
     }
