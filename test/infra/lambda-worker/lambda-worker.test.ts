@@ -550,6 +550,139 @@ describe("LambdaWorker", () => {
     });
   });
 
+  describe("with fallbacks", () => {
+    let stack: cdk.Stack;
+    let template: Template;
+
+    beforeAll(() => {
+      const app = new cdk.App();
+      stack = new cdk.Stack(app, "TestStack");
+      const alarmTopic = new sns.Topic(stack, "TestAlarm", {
+        topicName: "TestAlarm",
+      });
+
+      new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps: {
+          queueMaxConcurrency: 5,
+          entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
+          handler: "testWorker",
+          memorySize: 1024,
+          ephemeralStorageSize: cdk.Size.mebibytes(1024),
+          runtime: lambda.Runtime.NODEJS_22_X,
+          timeout: cdk.Duration.minutes(5),
+          retryAttempts: 2,
+        },
+        fallbacks: [
+          { memorySize: 2048 },
+          { memorySize: 4096, ephemeralStorageSize: cdk.Size.mebibytes(2048) },
+        ],
+        alarmTopic: alarmTopic,
+      });
+      template = Template.fromStack(stack);
+    });
+
+    test("provisions a lambda per tier, inheriting unspecified values", () => {
+      template.resourceCountIs("AWS::Lambda::Function", 3);
+      template.hasResourceProperties("AWS::Lambda::Function", {
+        FunctionName: "MyTestLambdaWorker",
+        MemorySize: 1024,
+        EphemeralStorage: { Size: 1024 },
+      });
+      template.hasResourceProperties("AWS::Lambda::Function", {
+        FunctionName: "MyTestLambdaWorker-01",
+        MemorySize: 2048,
+        EphemeralStorage: { Size: 1024 },
+      });
+      template.hasResourceProperties("AWS::Lambda::Function", {
+        FunctionName: "MyTestLambdaWorker-02",
+        MemorySize: 4096,
+        EphemeralStorage: { Size: 2048 },
+      });
+    });
+
+    test("sets retryAttempts to 1 on all but the last tier", () => {
+      template.hasResourceProperties("AWS::Lambda::EventInvokeConfig", {
+        FunctionName: {
+          Ref: stack.getLogicalId(findFunction("MyTestLambdaWorker")),
+        },
+        MaximumRetryAttempts: 1,
+      });
+      template.hasResourceProperties("AWS::Lambda::EventInvokeConfig", {
+        FunctionName: {
+          Ref: stack.getLogicalId(findFunction("MyTestLambdaWorker-01")),
+        },
+        MaximumRetryAttempts: 1,
+      });
+      template.hasResourceProperties("AWS::Lambda::EventInvokeConfig", {
+        FunctionName: {
+          Ref: stack.getLogicalId(findFunction("MyTestLambdaWorker-02")),
+        },
+        MaximumRetryAttempts: 2,
+      });
+    });
+
+    test("chains each queue to the next tier's queue and the last to the DLQ", () => {
+      template.resourceCountIs("AWS::SQS::Queue", 4);
+      template.hasResourceProperties("AWS::SQS::Queue", {
+        QueueName: "MyTestLambdaWorker-queue",
+        RedrivePolicy: {
+          deadLetterTargetArn: {
+            "Fn::GetAtt": [findQueue("MyTestLambdaWorker-01-queue"), "Arn"],
+          },
+          maxReceiveCount: 5,
+        },
+      });
+      template.hasResourceProperties("AWS::SQS::Queue", {
+        QueueName: "MyTestLambdaWorker-01-queue",
+        RedrivePolicy: {
+          deadLetterTargetArn: {
+            "Fn::GetAtt": [findQueue("MyTestLambdaWorker-02-queue"), "Arn"],
+          },
+        },
+      });
+      template.hasResourceProperties("AWS::SQS::Queue", {
+        QueueName: "MyTestLambdaWorker-02-queue",
+        RedrivePolicy: {
+          deadLetterTargetArn: {
+            "Fn::GetAtt": [findQueue("MyTestLambdaWorker-dlq"), "Arn"],
+          },
+        },
+      });
+    });
+
+    test("triggers the last tier from the DLQ", () => {
+      template.resourceCountIs("AWS::Lambda::EventSourceMapping", 4);
+      template.hasResourceProperties("AWS::Lambda::EventSourceMapping", {
+        Enabled: false,
+        EventSourceArn: {
+          "Fn::GetAtt": [findQueue("MyTestLambdaWorker-dlq"), "Arn"],
+        },
+        FunctionName: {
+          Ref: stack.getLogicalId(findFunction("MyTestLambdaWorker-02")),
+        },
+      });
+    });
+
+    function findQueue(queueName: string): string {
+      const [id] = Object.keys(
+        template.findResources("AWS::SQS::Queue", {
+          Properties: { QueueName: queueName },
+        }),
+      );
+      return id;
+    }
+
+    function findFunction(functionName: string): cdk.CfnElement {
+      return stack.node
+        .findAll()
+        .find(
+          (c) =>
+            c instanceof lambda.CfnFunction && c.functionName === functionName,
+        ) as cdk.CfnElement;
+    }
+  });
+
   describe("with fifo queue", () => {
     let stack: cdk.Stack;
 
