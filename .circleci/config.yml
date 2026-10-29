@@ -84,7 +84,7 @@ jobs:
           command: npm run jest-unit-test -- --ci --maxWorkers=2
       - run:
           name: Run infra tests
-          command: npm run jest-infra-test -- --ci --maxWorkers=2
+          command: npm run jest-infra-test -- --ci --maxWorkers=1
       - run:
           name: Run integration tests
           command: npm run jest-integration-test -- --ci --runInBand
