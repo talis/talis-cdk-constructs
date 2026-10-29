@@ -18,30 +18,20 @@ describe("LambdaWorker", () => {
   let successSqsUrl: string;
   let dlqSqsUrl: string;
 
-  async function findQueueUrl(
-    queuePostfix: string,
-    nextToken: string | undefined = undefined,
-  ): Promise<string> {
-    const response = await sqs.listQueues({ NextToken: nextToken }).promise();
+  async function findQueueUrl(queuePostfix: string): Promise<string> {
+    const queueName = `${process.env.AWS_PREFIX}${queuePostfix}`;
+    // Filter by name: an unfiltered listQueues returns at most 1000 queues
+    const response = await sqs
+      .listQueues({ QueueNamePrefix: queueName })
+      .promise();
 
-    if (!response.QueueUrls) {
-      throw Error("Worker queue not found");
+    const queueUrl = response.QueueUrls?.find((url) =>
+      url.endsWith(`/${queueName}`),
+    );
+    if (!queueUrl) {
+      throw Error(`Worker queue ${queueName} not found`);
     }
-
-    for (const queueUrl of response.QueueUrls) {
-      if (
-        queueUrl ===
-        `https://sqs.eu-west-1.amazonaws.com/302477901552/${process.env.AWS_PREFIX}${queuePostfix}`
-      ) {
-        return queueUrl;
-      }
-    }
-
-    if (response.NextToken) {
-      return await findQueueUrl(response.NextToken);
-    }
-
-    throw Error("Worker queue not found");
+    return queueUrl;
   }
 
   async function sendJob(message: object) {
