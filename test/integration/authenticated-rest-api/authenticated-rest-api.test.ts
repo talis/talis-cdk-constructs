@@ -10,7 +10,7 @@ const TALIS_CDK_AUTH_API_VALID_SECRET =
 
 describe("AuthenticatedRestApi", () => {
   // Increase the timeout We are making http calls which might have to spin up a cold lambda
-  jest.setTimeout(30000);
+  vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
   let apiGatewayId: string;
 
@@ -86,7 +86,7 @@ describe("AuthenticatedRestApi", () => {
     });
     try {
       await axiosNoAuthInstance.post("simple-resource");
-      fail("Expected 401");
+      expect.unreachable("Expected 401");
     } catch (err) {
       expect((err as Error).message).toBe(
         "Request failed with status code 401",

@@ -87,7 +87,7 @@ export class AuthenticatedRestApi extends Construct {
         functionName: `${apiName}-authoriser`,
 
         depsLockFilePath: path.resolve(libPath, "src/npm-shrinkwrap.json"),
-        entry: path.resolve(libPath, "src/lambda/rest-api/authorizer.js"),
+        entry: path.resolve(libPath, "src/lambda/rest-api/authorizer.ts"),
         handler: "validateToken",
 
         bundling: {

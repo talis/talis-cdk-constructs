@@ -16,7 +16,7 @@ const s3 = new S3();
 
 describe("AuthenticatedApi", () => {
   // Increase the timeout We are making http calls which might have to spin up a cold lambda
-  jest.setTimeout(30000);
+  vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
   let apiGatewayId: string;
 

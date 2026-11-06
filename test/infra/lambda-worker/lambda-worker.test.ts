@@ -329,11 +329,8 @@ describe("LambdaWorker", () => {
             // NodejsFunction props
             entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
             handler: "testWorker",
-            projectRoot: path.resolve(
-              __dirname,
-              "../../../examples/simple-lambda-worker",
-            ),
-            depsLockFilePath: "examples/simple-lambda-worker/package-lock.json",
+            projectRoot: path.resolve(__dirname, "../../.."),
+            depsLockFilePath: "package-lock.json",
             runtime: lambda.Runtime.NODEJS_20_X,
             awsSdkConnectionReuse: false,
             bundling: {

@@ -49,7 +49,7 @@ function AuthPolicy(principal, awsAccountId, apiOptions) {
    * @type {String}
    * @default '2012-10-17'
    */
-  this.version = '2012-10-17';
+  this.version = "2012-10-17";
 
   // these are the internal lists of allowed and denied methods. These are lists
   // of objects and each object has 2 properties: A resource ARN and a nullable
@@ -60,17 +60,17 @@ function AuthPolicy(principal, awsAccountId, apiOptions) {
   this.denyMethods = [];
 
   if (!apiOptions || !apiOptions.restApiId) {
-    this.restApiId = '*';
+    this.restApiId = "*";
   } else {
     this.restApiId = apiOptions.restApiId;
   }
   if (!apiOptions || !apiOptions.region) {
-    this.region = '*';
+    this.region = "*";
   } else {
     this.region = apiOptions.region;
   }
   if (!apiOptions || !apiOptions.stage) {
-    this.stage = '*';
+    this.stage = "*";
   } else {
     this.stage = apiOptions.stage;
   }
@@ -84,17 +84,17 @@ function AuthPolicy(principal, awsAccountId, apiOptions) {
  * @type {Object}
  */
 AuthPolicy.HttpVerb = {
-  GET: 'GET',
-  POST: 'POST',
-  PUT: 'PUT',
-  PATCH: 'PATCH',
-  HEAD: 'HEAD',
-  DELETE: 'DELETE',
-  OPTIONS: 'OPTIONS',
-  ALL: '*'
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  PATCH: "PATCH",
+  HEAD: "HEAD",
+  DELETE: "DELETE",
+  OPTIONS: "OPTIONS",
+  ALL: "*",
 };
 
-AuthPolicy.prototype = (function() {
+AuthPolicy.prototype = (function () {
   /**
    * Adds a method to the internal lists of allowed or denied methods. Each object in
    * the internal list contains a resource ARN and a condition statement. The condition
@@ -108,31 +108,31 @@ AuthPolicy.prototype = (function() {
    * @param {Object} The conditions object in the format specified by the AWS docs.
    * @return {void}
    */
-  const addMethod = function(effect, verb, resource, conditions) {
+  const addMethod = function (effect, verb, resource, conditions) {
     if (
-      verb !== '*' &&
+      verb !== "*" &&
       !Object.prototype.hasOwnProperty.call(AuthPolicy.HttpVerb, verb)
     ) {
       throw new Error(
-        `Invalid HTTP verb ${verb}. Allowed verbs in AuthPolicy.HttpVerb`
+        `Invalid HTTP verb ${verb}. Allowed verbs in AuthPolicy.HttpVerb`,
       );
     }
 
     let cleanedResource = resource;
-    if (resource.substring(0, 1) === '/') {
+    if (resource.substring(0, 1) === "/") {
       cleanedResource = resource.substring(1, resource.length);
     }
     const resourceArn = `arn:aws:execute-api:${this.region}:${this.awsAccountId}:${this.restApiId}/${this.stage}/${verb}/${cleanedResource}`;
 
-    if (effect.toLowerCase() === 'allow') {
+    if (effect.toLowerCase() === "allow") {
       this.allowMethods.push({
         resourceArn,
-        conditions
+        conditions,
       });
-    } else if (effect.toLowerCase() === 'deny') {
+    } else if (effect.toLowerCase() === "deny") {
       this.denyMethods.push({
         resourceArn,
-        conditions
+        conditions,
       });
       // } else {
       //     logger.debug('Unknown effect:' + effect.toLowerCase());
@@ -146,7 +146,7 @@ AuthPolicy.prototype = (function() {
    * @param {String} the string
    * @return {String} the result
    */
-  const toTitleCase = function(str) {
+  const toTitleCase = function (str) {
     return (
       str.substring(0, 1).toUpperCase() +
       str.substring(1, str.length).toLowerCase()
@@ -162,11 +162,11 @@ AuthPolicy.prototype = (function() {
    * @return {Object} An empty statement object with the Action, Effect, and Resource
    *                  properties prepopulated.
    */
-  const getEmptyStatement = function(effect) {
+  const getEmptyStatement = function (effect) {
     const titleCasedEffect = toTitleCase(effect);
 
     const statement = {};
-    statement.Action = 'execute-api:Invoke';
+    statement.Action = "execute-api:Invoke";
     statement.Effect = titleCasedEffect;
     statement.Resource = [];
 
@@ -183,7 +183,7 @@ AuthPolicy.prototype = (function() {
    *                and the conditions for the policy
    * @return {Array} an array of formatted statements for the policy.
    */
-  const getStatementsForEffect = function(effect, methods) {
+  const getStatementsForEffect = function (effect, methods) {
     const statements = [];
 
     if (methods.length > 0) {
@@ -221,7 +221,7 @@ AuthPolicy.prototype = (function() {
      * @method allowAllMethods
      */
     allowAllMethods() {
-      addMethod.call(this, 'allow', '*', '*', null);
+      addMethod.call(this, "allow", "*", "*", null);
     },
 
     /**
@@ -230,7 +230,7 @@ AuthPolicy.prototype = (function() {
      * @method denyAllMethods
      */
     denyAllMethods() {
-      addMethod.call(this, 'deny', '*', '*', null);
+      addMethod.call(this, "deny", "*", "*", null);
     },
 
     /**
@@ -244,7 +244,7 @@ AuthPolicy.prototype = (function() {
      * @return {void}
      */
     allowMethod(verb, resource) {
-      addMethod.call(this, 'allow', verb, resource, null);
+      addMethod.call(this, "allow", verb, resource, null);
     },
 
     /**
@@ -258,7 +258,7 @@ AuthPolicy.prototype = (function() {
      * @return {void}
      */
     denyMethod(verb, resource) {
-      addMethod.call(this, 'deny', verb, resource, null);
+      addMethod.call(this, "deny", verb, resource, null);
     },
 
     /**
@@ -275,7 +275,7 @@ AuthPolicy.prototype = (function() {
      * @return {void}
      */
     allowMethodWithConditions(verb, resource, conditions) {
-      addMethod.call(this, 'allow', verb, resource, conditions);
+      addMethod.call(this, "allow", verb, resource, conditions);
     },
 
     /**
@@ -292,7 +292,7 @@ AuthPolicy.prototype = (function() {
      * @return {void}
      */
     denyMethodWithConditions(verb, resource, conditions) {
-      addMethod.call(this, 'deny', verb, resource, conditions);
+      addMethod.call(this, "deny", verb, resource, conditions);
     },
 
     /**
@@ -309,7 +309,7 @@ AuthPolicy.prototype = (function() {
         (!this.allowMethods || this.allowMethods.length === 0) &&
         (!this.denyMethods || this.denyMethods.length === 0)
       ) {
-        throw new Error('No statements defined for the policy');
+        throw new Error("No statements defined for the policy");
       }
 
       const policy = {};
@@ -319,16 +319,16 @@ AuthPolicy.prototype = (function() {
       doc.Statement = [];
 
       doc.Statement = doc.Statement.concat(
-        getStatementsForEffect.call(this, 'Allow', this.allowMethods)
+        getStatementsForEffect.call(this, "Allow", this.allowMethods),
       );
       doc.Statement = doc.Statement.concat(
-        getStatementsForEffect.call(this, 'Deny', this.denyMethods)
+        getStatementsForEffect.call(this, "Deny", this.denyMethods),
       );
 
       policy.policyDocument = doc;
 
       return policy;
-    }
+    },
   };
 })();
 

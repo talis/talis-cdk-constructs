@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/simple-talis-cdk-stack.ts",
+  "app": "npx tsx bin/simple-talis-cdk-stack.ts",
   "watch": {
     "include": ["**"],
     "exclude": [
