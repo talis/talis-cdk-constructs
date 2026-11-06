@@ -1,13 +1,5 @@
 {
   "name": "@talis-cdk-constructs/lambda",
   "version": "0.1.0",
-  "dependencies": {
-    "talis-node": "github:talis/talis-node#v0.2.3"
-  },
-  "devDependencies": {
-    "esbuild": "^0.28.2"
-  },
-  "overrides": {
-    "lodash": "4.18.1"
-  }
+  "private": true
 }

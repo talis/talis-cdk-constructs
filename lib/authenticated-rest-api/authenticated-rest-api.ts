@@ -87,29 +87,8 @@ export class AuthenticatedRestApi extends Construct {
         functionName: `${apiName}-authoriser`,
 
         depsLockFilePath: path.resolve(libPath, "src/npm-shrinkwrap.json"),
-        entry: path.resolve(libPath, "src/lambda/rest-api/authorizer.ts"),
-        handler: "validateToken",
-
-        bundling: {
-          commandHooks: {
-            beforeBundling: () => {
-              return ["npm ci"];
-            },
-            beforeInstall: () => [],
-            afterBundling: () => [],
-          },
-          externalModules: [
-            "aws-sdk",
-
-            // hiredis is pulled in as a dependency from talis-node
-            // It has dependencies on gcc g++ and python to compile code during an npm install
-            // The redis cache is an optional parameter to the persona client in talis-node
-            // which we do not use in serverless projects. Remove this from the bundle created
-            // by esbuild to remove unnecessary issues with gcc/g++/python/node which have
-            // no impact as we do not use redis here.
-            "hiredis",
-          ],
-        },
+        entry: path.resolve(libPath, "src/lambda/authorizers.ts"),
+        handler: "restApiHandler",
 
         environment: buildLambdaEnvironment({
           environment: {
