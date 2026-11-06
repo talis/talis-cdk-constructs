@@ -1,7 +1,7 @@
 # Talis CDK constructs
 
-A Talis library of AWS CDK constructs, implemented in Typescript and currently
-Node v18.16.0
+A Talis library of AWS CDK constructs, implemented in TypeScript. Development uses
+Node.js 26 (see `.nvmrc`); published code and Lambda bundles target Node.js 22+.
 
 ## Contributing
 
@@ -53,12 +53,12 @@ Builds are conducted by CircleCI, and upon successful build of the `main` branch
 
 ## Useful commands
 
-- `npm run build` compile typescript to js
-- `npm run watch` watch for changes and compile
-- `npm run infra-test` perform the infra jest unit tests
-- `npm run integration-test` perform the integration tests
-- `npm run lint` will check code quality and style guidelines (using ESlint and Prettier)
-- `npm run format` will format the code (using Prettier)
+- `npm run build` compile `lib/` to `dist/` (only needed for publishing; tests and examples run the TypeScript source directly)
+- `npm run typecheck` type-check everything (lib, lambdas, tests, examples)
+- `npm test` run all tests with Vitest
+- `npm run unit-test` / `npm run infra-test` / `npm run integration-test` run one test suite
+- `npm run lint` check formatting (oxfmt), lint (oxlint) and types (tsc)
+- `npm run format` format the code (oxfmt)
 
 ## Integration Tests
 

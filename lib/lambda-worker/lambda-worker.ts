@@ -305,17 +305,17 @@ export class LambdaWorker extends Construct {
   private hasContainerLambdaProps(props: LambdaWorkerProps): boolean {
     return Boolean(
       props.lambdaProps.imageAsset ||
-        (props.lambdaProps.dockerImageTag &&
-          props.lambdaProps.ecrRepositoryArn &&
-          props.lambdaProps.ecrRepositoryName),
+      (props.lambdaProps.dockerImageTag &&
+        props.lambdaProps.ecrRepositoryArn &&
+        props.lambdaProps.ecrRepositoryName),
     );
   }
 
   private hasFunctionLambdaProps(props: LambdaWorkerProps): boolean {
     return Boolean(
       props.lambdaProps.entry &&
-        props.lambdaProps.handler &&
-        props.lambdaProps.runtime,
+      props.lambdaProps.handler &&
+      props.lambdaProps.runtime,
     );
   }
 

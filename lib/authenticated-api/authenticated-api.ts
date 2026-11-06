@@ -138,7 +138,7 @@ export class AuthenticatedApi extends Construct {
         functionName: `${apiName}-authoriser`,
 
         depsLockFilePath: path.resolve(libPath, "src/npm-shrinkwrap.json"),
-        entry: path.resolve(libPath, "src/lambda/api/authorizer.js"),
+        entry: path.resolve(libPath, "src/lambda/api/authorizer.ts"),
         handler: "validateToken",
 
         bundling: {

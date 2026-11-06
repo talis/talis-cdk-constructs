@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": false,
+    "rootDir": "lib",
+    "outDir": "dist",
+    "declaration": true,
+    "inlineSourceMap": true,
+    "inlineSources": true
+  },
+  "include": ["lib"],
+  "exclude": []
+}

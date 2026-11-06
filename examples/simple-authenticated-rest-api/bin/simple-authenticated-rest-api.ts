@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import { SimpleAuthenticatedRestApiStack } from "../lib/simple-authenticated-rest-api-stack";
 import { TalisDeploymentEnvironment } from "../../../lib";

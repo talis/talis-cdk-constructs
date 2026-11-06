@@ -7,8 +7,7 @@ import { getSiteDomain } from "./utils";
 import { CommonCdnSiteHostingProps } from "./cdn-site-hosting-props";
 import { Construct } from "constructs";
 
-export interface CdnSiteHostingWithDnsConstructProps
-  extends CommonCdnSiteHostingProps {
+export interface CdnSiteHostingWithDnsConstructProps extends CommonCdnSiteHostingProps {
   certificateArn?: string;
 }
 

@@ -1,5 +1,5 @@
 import { SQS } from "aws-sdk";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 const sqs = new SQS();
 
@@ -12,7 +12,7 @@ const WATCH_ATTEMPTS = 20;
 
 describe("LambdaWorker", () => {
   // Increase the timeout We are sending messages and waiting for lambda's to run
-  jest.setTimeout(350000);
+  vi.setConfig({ testTimeout: 350000, hookTimeout: 350000 });
 
   let workerSqsUrl: string;
   let successSqsUrl: string;
@@ -37,7 +37,7 @@ describe("LambdaWorker", () => {
   async function sendJob(message: object) {
     const params = {
       QueueUrl: workerSqsUrl,
-      MessageDeduplicationId: uuidv4(),
+      MessageDeduplicationId: randomUUID(),
       MessageGroupId: "1",
       MessageBody: JSON.stringify(message),
     };

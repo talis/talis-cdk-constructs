@@ -10,7 +10,7 @@ async function assertWebsiteCreated(url: string, content: string) {
 async function assertWebsiteDoesNotExist(url: string, errorMessage: string) {
   try {
     await axios.get(url);
-    fail("Expected to fail");
+    expect.unreachable("Expected to fail");
   } catch (err) {
     if (axios.isAxiosError(err)) {
       expect(err.message).toBe(errorMessage);
