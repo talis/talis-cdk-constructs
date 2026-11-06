@@ -13,8 +13,6 @@ module.exports = {
         preset: "conventionalcommits",
       },
     ],
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
     [
       "@semantic-release/npm",
       {
