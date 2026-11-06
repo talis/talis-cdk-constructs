@@ -1,5 +1,5 @@
 import axios from "axios";
-import { APIGateway } from "aws-sdk";
+import { APIGateway } from "@aws-sdk/client-api-gateway";
 
 const api = new APIGateway();
 
@@ -20,7 +20,7 @@ describe("AuthenticatedRestApi", () => {
     console.log(
       `Searching for API: ${process.env.AWS_PREFIX}simple-authenticated-rest-api`,
     );
-    const response = await api.getRestApis({ position: position }).promise();
+    const response = await api.getRestApis({ position: position });
 
     if (!response.items) {
       throw Error("ApiGateway not found");

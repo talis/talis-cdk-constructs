@@ -1,5 +1,6 @@
 import axios from "axios";
-import { ApiGatewayV2, S3 } from "aws-sdk";
+import { ApiGatewayV2 } from "@aws-sdk/client-apigatewayv2";
+import { S3 } from "@aws-sdk/client-s3";
 
 const api = new ApiGatewayV2();
 
@@ -23,7 +24,7 @@ describe("AuthenticatedApi", () => {
   async function findApiGatewayId(
     nextToken: string | undefined = undefined,
   ): Promise<string> {
-    const response = await api.getApis({ NextToken: nextToken }).promise();
+    const response = await api.getApis({ NextToken: nextToken });
 
     if (!response.Items) {
       throw Error("ApiGateway not found");
@@ -69,22 +70,18 @@ describe("AuthenticatedApi", () => {
   }
 
   async function uploadExampleDocumentation() {
-    await s3
-      .putObject({
-        Bucket: `${process.env.AWS_PREFIX}simple-authenticated-api-docs`,
-        Key: `api-documentation/index.html`,
-        Body: "Simple Authenticated Api Documentation",
-      })
-      .promise();
+    await s3.putObject({
+      Bucket: `${process.env.AWS_PREFIX}simple-authenticated-api-docs`,
+      Key: `api-documentation/index.html`,
+      Body: "Simple Authenticated Api Documentation",
+    });
   }
 
   async function deleteExampleDocumentation() {
-    await s3
-      .deleteObject({
-        Bucket: `${process.env.AWS_PREFIX}simple-authenticated-api-docs`,
-        Key: `api-documentation/index.html`,
-      })
-      .promise();
+    await s3.deleteObject({
+      Bucket: `${process.env.AWS_PREFIX}simple-authenticated-api-docs`,
+      Key: `api-documentation/index.html`,
+    });
   }
 
   beforeAll(async () => {
