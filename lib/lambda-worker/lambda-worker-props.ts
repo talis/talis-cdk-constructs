@@ -93,8 +93,13 @@ export interface LambdaWorkerProps {
     contentBasedDeduplication?: boolean;
   };
 
-  // SNS Topic all alarm actions should be sent to
-  alarmTopic: sns.ITopic;
+  // Optional SNS Topic all alarm actions should be sent to
+  alarmTopic?: sns.ITopic;
+
+  // Datadog On-Call team paged by the alarms, and the runbook linked from
+  // the page. See TalisAlarm.
+  onCallTeam?: string | undefined;
+  runbookUrl?: string | undefined;
 
   // Optional subscribe to SNS topic options
   subscription?: {

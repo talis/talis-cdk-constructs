@@ -32,6 +32,11 @@ Builds are conducted by CircleCI, and upon successful build of the `main` branch
     - Per-method required scopes via `requiredScope`, as in `AuthenticatedApi`
   - Details [here](/examples/simple-authenticated-rest-api/README.md).
 
+- `TalisAlarm`
+  - A CloudWatch `Alarm` with optional `onCallTeam` and `runbookUrl` props, set as its `oncall_team` and `runbook_url` tags
+  - Its tags are propagated to EventBridge, where the rules deployed by [cdk-aws-alarms](https://github.com/talis/cdk-aws-alarms) page that Datadog On-Call team. No SNS topic is needed
+  - Used by `LambdaWorker`, `AuthenticatedApi` and `AuthenticatedRestApi`, which take the same two props; their `alarmTopic` is now optional
+
 - `TalisCdkStack`
   - Base stack to be extended by talis stacks
   - Details [here](/lib/talis-cdk-stack/README.md)

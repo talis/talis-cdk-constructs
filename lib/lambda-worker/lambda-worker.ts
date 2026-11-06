@@ -14,6 +14,7 @@ import {
   LambdaWorkerProps,
 } from "./lambda-worker-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
+import { TalisAlarm } from "../talis-alarm";
 
 const DEFAULT_MAX_RECEIVE_COUNT = 5;
 const DEFAULT_APPROX_AGE_OLDEST_MESSAGE_THRESHOLD = cdk.Duration.hours(1);
@@ -200,7 +201,9 @@ export class LambdaWorker extends Construct {
 
     // Add alerting
 
-    const alarmAction = new cloudwatchActions.SnsAction(props.alarmTopic);
+    const alarmActions = props.alarmTopic
+      ? [new cloudwatchActions.SnsAction(props.alarmTopic)]
+      : [];
 
     // Add an alarm on any messages appearing on the DLQ
     const approximateNumberOfMessagesVisibleMetric = lambdaDLQ
@@ -209,12 +212,14 @@ export class LambdaWorker extends Construct {
         statistic: "sum",
         period: cdk.Duration.minutes(1),
       });
-    const dlqMessagesVisable = new cloudwatch.Alarm(
+    const dlqMessagesVisable = new TalisAlarm(
       this,
       `${props.name}-dlq-messages-visible-alarm`,
       {
+        onCallTeam: props.onCallTeam,
+        runbookUrl: props.runbookUrl,
         alarmName: `${props.name}-dlq-messages-visible-alarm`,
-        alarmDescription: `Alarm when the lambda worker fails to process a message and the message appears on the DLQ`,
+        alarmDescription: `Lambda worker ${props.name} has messages in its dead-letter queue (DLQ).`,
         actionsEnabled: true,
         metric: approximateNumberOfMessagesVisibleMetric,
         evaluationPeriods: 1,
@@ -226,19 +231,21 @@ export class LambdaWorker extends Construct {
         treatMissingData: cloudwatch.TreatMissingData.IGNORE,
       },
     );
-    dlqMessagesVisable.addAlarmAction(alarmAction);
-    dlqMessagesVisable.addOkAction(alarmAction);
+    dlqMessagesVisable.addAlarmAction(...alarmActions);
+    dlqMessagesVisable.addOkAction(...alarmActions);
 
     // Add an alarm for the age of the oldest message on the LambdaWorkers main trigger queue
     const approximateAgeOfOldestMessageMetric = this.lambdaQueue
       .metric("ApproximateAgeOfOldestMessage")
       .with({ statistic: "average", period: cdk.Duration.minutes(1) });
-    const queueMessagesAge = new cloudwatch.Alarm(
+    const queueMessagesAge = new TalisAlarm(
       this,
       `${props.name}-queue-message-age-alarm`,
       {
+        onCallTeam: props.onCallTeam,
+        runbookUrl: props.runbookUrl,
         alarmName: `${props.name}-queue-message-age-alarm`,
-        alarmDescription: `Alarm when the lambda workers main trigger queue has messages older than ${approximateAgeOfOldestMessageThreshold.toSeconds()} seconds`,
+        alarmDescription: `The trigger queue for Lambda worker ${props.name} has messages older than ${approximateAgeOfOldestMessageThreshold.toHumanString()}.`,
         actionsEnabled: true,
         metric: approximateAgeOfOldestMessageMetric,
         evaluationPeriods: 1,
@@ -250,16 +257,18 @@ export class LambdaWorker extends Construct {
         treatMissingData: cloudwatch.TreatMissingData.IGNORE,
       },
     );
-    queueMessagesAge.addAlarmAction(alarmAction);
-    queueMessagesAge.addOkAction(alarmAction);
+    queueMessagesAge.addAlarmAction(...alarmActions);
+    queueMessagesAge.addOkAction(...alarmActions);
 
     // Add an alarm for more than "approximateNumberOfMessagesVisible" messages on the queue
-    const queueMessagesVisable = new cloudwatch.Alarm(
+    const queueMessagesVisable = new TalisAlarm(
       this,
       `${props.name}-queue-messages-visible-alarm`,
       {
+        onCallTeam: props.onCallTeam,
+        runbookUrl: props.runbookUrl,
         alarmName: `${props.name}-queue-messages-visible-alarm`,
-        alarmDescription: `Alarm when the lambda workers main trigger queue has more than ${approximateNumberOfMessagesVisibleThreshold} messages on the queue`,
+        alarmDescription: `The trigger queue for Lambda worker ${props.name} has ${approximateNumberOfMessagesVisibleThreshold} or more messages waiting.`,
         actionsEnabled: true,
         metric: approximateNumberOfMessagesVisibleMetric,
         evaluationPeriods: 1,
@@ -271,8 +280,8 @@ export class LambdaWorker extends Construct {
         treatMissingData: cloudwatch.TreatMissingData.IGNORE,
       },
     );
-    queueMessagesVisable.addAlarmAction(alarmAction);
-    queueMessagesVisable.addOkAction(alarmAction);
+    queueMessagesVisable.addAlarmAction(...alarmActions);
+    queueMessagesVisable.addOkAction(...alarmActions);
   }
 
   isContainerLambda(props: LambdaWorkerProps): boolean {

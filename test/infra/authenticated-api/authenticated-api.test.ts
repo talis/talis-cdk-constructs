@@ -215,7 +215,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-latency-alarm",
           AlarmDescription:
-            "Alarm if latency on api test-MyTestAuthenticatedApi exceeds 60000 milliseconds",
+            "The average latency of API test-MyTestAuthenticatedApi was 1 minute or more over 1 minute.",
           Namespace: "AWS/ApiGateway",
           MetricName: "Latency",
           Dimensions: [
@@ -242,7 +242,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route1-duration-alarm",
           AlarmDescription:
-            "Alarm if duration of lambda for route test-MyTestAuthenticatedApi-route1 exceeds duration 60000 milliseconds",
+            "The Lambda for GET /1/test-route-1 of API test-MyTestAuthenticatedApi took 1 minute or longer to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Duration",
           Dimensions: [
@@ -267,7 +267,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route2-duration-alarm",
           AlarmDescription:
-            "Alarm if duration of lambda for route test-MyTestAuthenticatedApi-route2 exceeds duration 60000 milliseconds",
+            "The Lambda for GET /1/test-route-2 of API test-MyTestAuthenticatedApi took 1 minute or longer to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Duration",
           Dimensions: [
@@ -294,7 +294,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route1-errors-alarm",
           AlarmDescription:
-            "Alarm if errors on api test-MyTestAuthenticatedApi-route1",
+            "The Lambda for GET /1/test-route-1 of API test-MyTestAuthenticatedApi failed to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Errors",
           Dimensions: [
@@ -319,7 +319,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route2-errors-alarm",
           AlarmDescription:
-            "Alarm if errors on api test-MyTestAuthenticatedApi-route2",
+            "The Lambda for GET /1/test-route-2 of API test-MyTestAuthenticatedApi failed to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Errors",
           Dimensions: [

@@ -16,6 +16,7 @@ import { RouteLambdaProps } from "./route-lambda-props";
 import { RouteUrlProps } from "./route-url-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
 import { resolvePersonaOrigin } from "../util/persona-origin";
+import { TalisAlarm, TalisAlarmProps } from "../talis-alarm";
 
 const DEFAULT_API_LATENCY_THRESHOLD = cdk.Duration.minutes(1);
 const DEFAULT_LAMBDA_DURATION_THRESHOLD = cdk.Duration.minutes(1);
@@ -27,9 +28,10 @@ export class AuthenticatedApi extends Construct {
 
   private httpApi: apigatewayv2.HttpApi;
   private authorizer: apigatewayv2.IHttpRouteAuthorizer;
-  private alarmAction: cloudwatch.IAlarmAction;
   // Required scope per "<METHOD> <path>", the authorizer event's routeKey
   private readonly scopeConfig: Record<string, string> = {};
+  private alarmActions: cloudwatch.IAlarmAction[];
+  private paging: Pick<TalisAlarmProps, "onCallTeam" | "runbookUrl">;
 
   constructor(scope: Construct, id: string, props: AuthenticatedApiProps) {
     super(scope, id);
@@ -117,7 +119,13 @@ export class AuthenticatedApi extends Construct {
       value: this.httpApi.apiEndpoint,
     });
 
-    this.alarmAction = new cloudwatchActions.SnsAction(props.alarmTopic);
+    this.alarmActions = props.alarmTopic
+      ? [new cloudwatchActions.SnsAction(props.alarmTopic)]
+      : [];
+    this.paging = {
+      onCallTeam: props.onCallTeam,
+      runbookUrl: props.runbookUrl,
+    };
 
     const authLambdaTimeout = cdk.Duration.minutes(2);
 
@@ -190,16 +198,13 @@ export class AuthenticatedApi extends Construct {
         const durationMetric = routeProps.lambda
           .metric("Duration")
           .with({ period: cdk.Duration.minutes(1), statistic: "max" });
-        const durationAlarm = new cloudwatch.Alarm(
+        const durationAlarm = new TalisAlarm(
           this,
           `${apiName}-${routeProps.name}-duration-alarm`,
           {
+            ...this.paging,
             alarmName: `${apiName}-${routeProps.name}-duration-alarm`,
-            alarmDescription: `Alarm if duration of lambda for route ${
-              props.prefix
-            }${props.name}-${
-              routeProps.name
-            } exceeds duration ${durationThreshold.toMilliseconds()} milliseconds`,
+            alarmDescription: `The Lambda for ${routeProps.method} ${routeProps.path} of API ${apiName} took ${durationThreshold.toHumanString()} or longer to handle a request.`,
             actionsEnabled: true,
             metric: durationMetric,
             evaluationPeriods: 1,
@@ -211,19 +216,20 @@ export class AuthenticatedApi extends Construct {
             treatMissingData: cloudwatch.TreatMissingData.IGNORE,
           },
         );
-        durationAlarm.addAlarmAction(this.alarmAction);
-        durationAlarm.addOkAction(this.alarmAction);
+        durationAlarm.addAlarmAction(...this.alarmActions);
+        durationAlarm.addOkAction(...this.alarmActions);
 
         const errorsMetric = routeProps.lambda
           .metric("Errors")
           .with({ period: cdk.Duration.minutes(1), statistic: "sum" });
 
-        const errorsAlarm = new cloudwatch.Alarm(
+        const errorsAlarm = new TalisAlarm(
           this,
           `${apiName}-${routeProps.name}-errors-alarm`,
           {
+            ...this.paging,
             alarmName: `${apiName}-${routeProps.name}-errors-alarm`,
-            alarmDescription: `Alarm if errors on api ${apiName}-${routeProps.name}`,
+            alarmDescription: `The Lambda for ${routeProps.method} ${routeProps.path} of API ${apiName} failed to handle a request.`,
             actionsEnabled: true,
             metric: errorsMetric,
             evaluationPeriods: 1,
@@ -235,8 +241,8 @@ export class AuthenticatedApi extends Construct {
             treatMissingData: cloudwatch.TreatMissingData.IGNORE,
           },
         );
-        errorsAlarm.addAlarmAction(this.alarmAction);
-        errorsAlarm.addOkAction(this.alarmAction);
+        errorsAlarm.addAlarmAction(...this.alarmActions);
+        errorsAlarm.addOkAction(...this.alarmActions);
       }
     }
 
@@ -248,27 +254,22 @@ export class AuthenticatedApi extends Construct {
       .metricLatency()
       .with({ statistic: "average", period: cdk.Duration.minutes(1) });
 
-    const routeLatencyAlarm = new cloudwatch.Alarm(
-      this,
-      `${apiName}-latency-alarm`,
-      {
-        alarmName: `${apiName}-latency-alarm`,
-        alarmDescription: `Alarm if latency on api ${props.prefix}${
-          props.name
-        } exceeds ${latencyThreshold.toMilliseconds()} milliseconds`,
-        actionsEnabled: true,
-        metric: metricLatency,
-        evaluationPeriods: 1,
-        threshold: latencyThreshold.toMilliseconds(),
-        comparisonOperator:
-          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-        // Set treatMissingData to IGNORE
-        // Stops alarms with minimal data having false alarms when they transition to this state
-        treatMissingData: cloudwatch.TreatMissingData.IGNORE,
-      },
-    );
-    routeLatencyAlarm.addAlarmAction(this.alarmAction);
-    routeLatencyAlarm.addOkAction(this.alarmAction);
+    const routeLatencyAlarm = new TalisAlarm(this, `${apiName}-latency-alarm`, {
+      ...this.paging,
+      alarmName: `${apiName}-latency-alarm`,
+      alarmDescription: `The average latency of API ${apiName} was ${latencyThreshold.toHumanString()} or more over 1 minute.`,
+      actionsEnabled: true,
+      metric: metricLatency,
+      evaluationPeriods: 1,
+      threshold: latencyThreshold.toMilliseconds(),
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      // Set treatMissingData to IGNORE
+      // Stops alarms with minimal data having false alarms when they transition to this state
+      treatMissingData: cloudwatch.TreatMissingData.IGNORE,
+    });
+    routeLatencyAlarm.addAlarmAction(...this.alarmActions);
+    routeLatencyAlarm.addOkAction(...this.alarmActions);
   }
 
   addUrlRoute(routeProps: RouteUrlProps) {

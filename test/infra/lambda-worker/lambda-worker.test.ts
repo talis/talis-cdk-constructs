@@ -142,7 +142,7 @@ describe("LambdaWorker", () => {
           {
             AlarmName: "MyTestLambdaWorker-dlq-messages-visible-alarm",
             AlarmDescription:
-              "Alarm when the lambda worker fails to process a message and the message appears on the DLQ",
+              "Lambda worker MyTestLambdaWorker has messages in its dead-letter queue (DLQ).",
             Namespace: "AWS/SQS",
             MetricName: "ApproximateNumberOfMessagesVisible",
             Dimensions: [
@@ -172,7 +172,7 @@ describe("LambdaWorker", () => {
           {
             AlarmName: "MyTestLambdaWorker-queue-messages-visible-alarm",
             AlarmDescription:
-              "Alarm when the lambda workers main trigger queue has more than 1000 messages on the queue",
+              "The trigger queue for Lambda worker MyTestLambdaWorker has 1000 or more messages waiting.",
             Namespace: "AWS/SQS",
             MetricName: "ApproximateNumberOfMessagesVisible",
             Dimensions: [
@@ -202,7 +202,7 @@ describe("LambdaWorker", () => {
           {
             AlarmName: "MyTestLambdaWorker-queue-message-age-alarm",
             AlarmDescription:
-              "Alarm when the lambda workers main trigger queue has messages older than 3600 seconds",
+              "The trigger queue for Lambda worker MyTestLambdaWorker has messages older than 1 hour.",
             Namespace: "AWS/SQS",
             MetricName: "ApproximateAgeOfOldestMessage",
             Dimensions: [
@@ -224,6 +224,46 @@ describe("LambdaWorker", () => {
             OKActions: [{ Ref: "TestAlarm5A9EF6BD" }],
           },
         );
+      });
+    });
+
+    describe("paging an on-call team instead of an alarm topic", () => {
+      let stack: cdk.Stack;
+
+      beforeAll(() => {
+        const app = new cdk.App();
+        stack = new cdk.Stack(app, "TestStack");
+        new LambdaWorker(stack, "MyTestLambdaWorker", {
+          name: "MyTestLambdaWorker",
+          lambdaProps: {
+            queueMaxConcurrency: 5,
+            entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
+            handler: "testWorker",
+            memorySize: 2048,
+            runtime: lambda.Runtime.NODEJS_22_X,
+            timeout: cdk.Duration.minutes(5),
+          },
+          queueProps: {},
+          onCallTeam: "talis-platform",
+          runbookUrl: "https://example.com/runbooks/worker",
+        });
+      });
+
+      test("provisions three tagged alarms without actions", () => {
+        const template = Template.fromStack(stack);
+        template.resourceCountIs("AWS::CloudWatch::Alarm", 3);
+        template.allResourcesProperties("AWS::CloudWatch::Alarm", {
+          AlarmActions: [],
+          OKActions: [],
+          Tags: [
+            { Key: "oncall_team", Value: "talis-platform" },
+            {
+              Key: "runbook_url",
+              Value: "https://example.com/runbooks/worker",
+            },
+          ],
+          ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
+        });
       });
     });
 
@@ -867,7 +907,7 @@ describe("LambdaWorker", () => {
           {
             AlarmName: "MyTestLambdaWorker-dlq-messages-visible-alarm",
             AlarmDescription:
-              "Alarm when the lambda worker fails to process a message and the message appears on the DLQ",
+              "Lambda worker MyTestLambdaWorker has messages in its dead-letter queue (DLQ).",
             Namespace: "AWS/SQS",
             MetricName: "ApproximateNumberOfMessagesVisible",
             Dimensions: [
@@ -897,7 +937,7 @@ describe("LambdaWorker", () => {
           {
             AlarmName: "MyTestLambdaWorker-queue-messages-visible-alarm",
             AlarmDescription:
-              "Alarm when the lambda workers main trigger queue has more than 1000 messages on the queue",
+              "The trigger queue for Lambda worker MyTestLambdaWorker has 1000 or more messages waiting.",
             Namespace: "AWS/SQS",
             MetricName: "ApproximateNumberOfMessagesVisible",
             Dimensions: [
@@ -927,7 +967,7 @@ describe("LambdaWorker", () => {
           {
             AlarmName: "MyTestLambdaWorker-queue-message-age-alarm",
             AlarmDescription:
-              "Alarm when the lambda workers main trigger queue has messages older than 3600 seconds",
+              "The trigger queue for Lambda worker MyTestLambdaWorker has messages older than 1 hour.",
             Namespace: "AWS/SQS",
             MetricName: "ApproximateAgeOfOldestMessage",
             Dimensions: [
