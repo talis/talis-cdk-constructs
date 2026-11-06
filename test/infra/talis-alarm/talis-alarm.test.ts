@@ -16,12 +16,14 @@ describe("TalisAlarm", () => {
     return Template.fromStack(stack);
   }
 
-  test("tags the alarm with the on-call team and runbook, and propagates its tags to EventBridge", () => {
+  test("tags the alarm with the on-call team, runbook and Lambda function, and propagates its tags to EventBridge", () => {
     synth({
       onCallTeam: "talis-platform",
       runbookUrl: "https://example.com/runbooks/test",
+      lambdaFunctionName: "my-function",
     }).hasResourceProperties("AWS::CloudWatch::Alarm", {
       Tags: [
+        { Key: "lambda_function", Value: "my-function" },
         { Key: "oncall_team", Value: "talis-platform" },
         { Key: "runbook_url", Value: "https://example.com/runbooks/test" },
       ],
@@ -29,10 +31,11 @@ describe("TalisAlarm", () => {
     });
   });
 
-  test("adds no tags when the on-call team and runbook are undefined", () => {
+  test("adds no tags when none of the tag props are set", () => {
     synth({
       onCallTeam: undefined,
       runbookUrl: undefined,
+      lambdaFunctionName: undefined,
     }).hasResourceProperties("AWS::CloudWatch::Alarm", {
       Tags: Match.absent(),
       ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },

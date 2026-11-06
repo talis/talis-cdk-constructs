@@ -8,15 +8,19 @@ import { TalisAlarmProps } from "./talis-alarm-props";
 const TAG_VALUE = /^[\p{L}\p{Z}\p{N}_.:/=+\-@]{0,256}$/u;
 
 // A CloudWatch alarm that pages a Datadog On-Call team when tagged with one.
-// Its tags, including oncall_team and runbook_url, are copied into its
+// Its tags, including oncall_team, runbook_url and lambda_function, are copied into its
 // EventBridge "CloudWatch Alarm State Change" events, where the paging rules
 // deployed by cdk-aws-alarms match them. No SNS topic is needed.
 export class TalisAlarm extends cloudwatch.Alarm {
   constructor(scope: Construct, id: string, props: TalisAlarmProps) {
-    const { onCallTeam, runbookUrl, ...alarmProps } = props;
+    const { onCallTeam, runbookUrl, lambdaFunctionName, ...alarmProps } = props;
     super(scope, id, alarmProps);
 
-    const tags = { oncall_team: onCallTeam, runbook_url: runbookUrl };
+    const tags = {
+      oncall_team: onCallTeam,
+      runbook_url: runbookUrl,
+      lambda_function: lambdaFunctionName,
+    };
     for (const [key, value] of Object.entries(tags)) {
       if (value === undefined) continue;
       if (!cdk.Token.isUnresolved(value) && !TAG_VALUE.test(value)) {

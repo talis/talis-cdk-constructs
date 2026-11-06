@@ -9,4 +9,8 @@ export interface TalisAlarmProps extends cloudwatch.AlarmProps {
   // Runbook linked from the page. Set as the alarm's runbook_url tag, so it
   // can only contain letters, digits, spaces and _ . : / = + - @
   readonly runbookUrl?: string | undefined;
+
+  // Lambda function whose error logs the page links to, in CloudWatch Logs
+  // Insights. Set as the alarm's lambda_function tag.
+  readonly lambdaFunctionName?: string | undefined;
 }

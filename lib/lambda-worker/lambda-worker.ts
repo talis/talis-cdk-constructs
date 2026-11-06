@@ -169,8 +169,10 @@ export class LambdaWorker extends Construct {
     }
 
     // Create the lambdas
+    const lambdaFunctions: lambda.Function[] = [];
     tiers.forEach((tier, tierIndex) => {
       const lambdaWorker: lambda.Function = this.createLambdaFunction(tier);
+      lambdaFunctions.push(lambdaWorker);
 
       if (props.lambdaProps.policyStatements) {
         for (const statement of props.lambdaProps.policyStatements) {
@@ -219,6 +221,9 @@ export class LambdaWorker extends Construct {
         onCallTeam: props.onCallTeam,
         runbookUrl: props.runbookUrl,
         alarmName: `${props.name}-dlq-messages-visible-alarm`,
+        // The last tier dead-letters to the DLQ.
+        lambdaFunctionName:
+          lambdaFunctions[lambdaFunctions.length - 1].functionName,
         alarmDescription: `Lambda worker ${props.name} has messages in its dead-letter queue (DLQ).`,
         actionsEnabled: true,
         metric: approximateNumberOfMessagesVisibleMetric,
@@ -245,6 +250,7 @@ export class LambdaWorker extends Construct {
         onCallTeam: props.onCallTeam,
         runbookUrl: props.runbookUrl,
         alarmName: `${props.name}-queue-message-age-alarm`,
+        lambdaFunctionName: lambdaFunctions[0].functionName,
         alarmDescription: `The trigger queue for Lambda worker ${props.name} has messages older than ${approximateAgeOfOldestMessageThreshold.toHumanString()}.`,
         actionsEnabled: true,
         metric: approximateAgeOfOldestMessageMetric,
@@ -268,6 +274,7 @@ export class LambdaWorker extends Construct {
         onCallTeam: props.onCallTeam,
         runbookUrl: props.runbookUrl,
         alarmName: `${props.name}-queue-messages-visible-alarm`,
+        lambdaFunctionName: lambdaFunctions[0].functionName,
         alarmDescription: `The trigger queue for Lambda worker ${props.name} has ${approximateNumberOfMessagesVisibleThreshold} or more messages waiting.`,
         actionsEnabled: true,
         metric: approximateNumberOfMessagesVisibleMetric,

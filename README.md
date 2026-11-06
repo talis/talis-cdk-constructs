@@ -33,9 +33,9 @@ Builds are conducted by CircleCI, and upon successful build of the `main` branch
   - Details [here](/examples/simple-authenticated-rest-api/README.md).
 
 - `TalisAlarm`
-  - A CloudWatch `Alarm` with optional `onCallTeam` and `runbookUrl` props, set as its `oncall_team` and `runbook_url` tags
+  - A CloudWatch `Alarm` with optional `onCallTeam`, `runbookUrl` and `lambdaFunctionName` props, set as its `oncall_team`, `runbook_url` and `lambda_function` tags
   - Its tags are propagated to EventBridge, where the rules deployed by [cdk-aws-alarms](https://github.com/talis/cdk-aws-alarms) page that Datadog On-Call team. No SNS topic is needed
-  - Used by `LambdaWorker`, `AuthenticatedApi` and `AuthenticatedRestApi`, which take the same two props; their `alarmTopic` is now optional
+  - Used by `LambdaWorker`, `AuthenticatedApi` and `AuthenticatedRestApi`, which take `onCallTeam` and `runbookUrl` and set `lambdaFunctionName` on their Lambda alarms; their `alarmTopic` is now optional
 
 - `TalisCdkStack`
   - Base stack to be extended by talis stacks

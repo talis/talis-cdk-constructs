@@ -212,6 +212,8 @@ export class AuthenticatedRestApi extends Construct {
         {
           ...this.paging,
           alarmName: `${alarmNamePrefix}duration-alarm`,
+          lambdaFunctionName:
+            resourceProps.methods[method].function.functionName,
           alarmDescription: `The Lambda for ${method} ${resource.path} of API ${apiName} took ${durationThreshold.toHumanString()} or longer to handle a request.`,
           actionsEnabled: true,
           metric: durationMetric,
@@ -237,6 +239,8 @@ export class AuthenticatedRestApi extends Construct {
         {
           ...this.paging,
           alarmName: `${alarmNamePrefix}errors-alarm`,
+          lambdaFunctionName:
+            resourceProps.methods[method].function.functionName,
           alarmDescription: `The Lambda for ${method} ${resource.path} of API ${apiName} failed to handle a request.`,
           actionsEnabled: true,
           metric: errorsMetric,

@@ -204,6 +204,7 @@ export class AuthenticatedApi extends Construct {
           {
             ...this.paging,
             alarmName: `${apiName}-${routeProps.name}-duration-alarm`,
+            lambdaFunctionName: routeProps.lambda.functionName,
             alarmDescription: `The Lambda for ${routeProps.method} ${routeProps.path} of API ${apiName} took ${durationThreshold.toHumanString()} or longer to handle a request.`,
             actionsEnabled: true,
             metric: durationMetric,
@@ -229,6 +230,7 @@ export class AuthenticatedApi extends Construct {
           {
             ...this.paging,
             alarmName: `${apiName}-${routeProps.name}-errors-alarm`,
+            lambdaFunctionName: routeProps.lambda.functionName,
             alarmDescription: `The Lambda for ${routeProps.method} ${routeProps.path} of API ${apiName} failed to handle a request.`,
             actionsEnabled: true,
             metric: errorsMetric,

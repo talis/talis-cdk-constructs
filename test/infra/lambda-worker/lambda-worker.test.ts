@@ -4,7 +4,7 @@ import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { aws_iam as iam } from "aws-cdk-lib";
 import { aws_sns as sns } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 
 import { LambdaWorker, LambdaWorkerProps } from "../../../lib/lambda-worker";
 
@@ -255,13 +255,14 @@ describe("LambdaWorker", () => {
         template.allResourcesProperties("AWS::CloudWatch::Alarm", {
           AlarmActions: [],
           OKActions: [],
-          Tags: [
+          Tags: Match.arrayWith([
+            { Key: "lambda_function", Value: Match.anyValue() },
             { Key: "oncall_team", Value: "talis-platform" },
             {
               Key: "runbook_url",
               Value: "https://example.com/runbooks/worker",
             },
-          ],
+          ]),
           ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
         });
       });
@@ -636,6 +637,22 @@ describe("LambdaWorker", () => {
         MemorySize: 4096,
         EphemeralStorage: { Size: 2048 },
       });
+    });
+
+    test("links the DLQ alarm to the last tier's logs and the queue alarms to the first tier's", () => {
+      const lambdaFunction = (alarm: string, functionName: string) =>
+        template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+          AlarmName: `MyTestLambdaWorker-${alarm}-alarm`,
+          Tags: [
+            {
+              Key: "lambda_function",
+              Value: { Ref: stack.getLogicalId(findFunction(functionName)) },
+            },
+          ],
+        });
+      lambdaFunction("dlq-messages-visible", "MyTestLambdaWorker-02");
+      lambdaFunction("queue-message-age", "MyTestLambdaWorker");
+      lambdaFunction("queue-messages-visible", "MyTestLambdaWorker");
     });
 
     test("sets retryAttempts to 1 on all but the last tier", () => {
