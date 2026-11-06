@@ -3,6 +3,7 @@ vi.hoisted(() => {
   process.env.SCOPE_CONFIG = JSON.stringify({
     "GET /items/{id}": "read",
     "ANY /admin": "admin",
+    "GET /multi": "read, write",
   });
 });
 
@@ -99,6 +100,12 @@ describe("httpApiHandler", () => {
       isAuthorized: false,
       context: { description: "Insufficient Scope", clientId: "client" },
     });
+  });
+
+  test("accepts any of several comma-separated scopes", async () => {
+    await expect(
+      invoke(bearer({ sub: "client", scopes: ["write"] }), "GET /multi"),
+    ).resolves.toMatchObject({ isAuthorized: true });
   });
 
   test("only requires the scope configured for the route", async () => {

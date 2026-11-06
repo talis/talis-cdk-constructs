@@ -95,7 +95,7 @@ async function authorize(
   try {
     const decoded = await persona.validateToken(
       token,
-      scope?.split(","),
+      scope?.split(",").map((s) => s.trim()),
       requestId,
     );
     return { authorized: true, token: decoded };
