@@ -1,8 +1,12 @@
+import * as path from "node:path";
 import * as cdk from "aws-cdk-lib";
 import { aws_cloudfront as cloudfront } from "aws-cdk-lib";
 import { aws_s3_deployment as s3deploy } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { CdnSiteHostingConstruct } from "../../../lib/cdn-site-hosting";
+
+// Keep assets tiny: staging the repo root would hash all of node_modules
+const STATIC_SITE = path.resolve(__dirname, "../../fixtures/static-site");
 
 // hosted-zone requires an environment be attached to the Stack
 const testEnv: cdk.Environment = {
@@ -27,7 +31,7 @@ describe("CdnSiteHostingConstruct", () => {
         siteSubDomain: fakeSiteSubDomain,
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
-        sources: [s3deploy.Source.asset("./")],
+        sources: [s3deploy.Source.asset(STATIC_SITE)],
         websiteErrorDocument: "error.html",
         websiteIndexDocument: "index.html",
       });
@@ -101,7 +105,7 @@ describe("CdnSiteHostingConstruct", () => {
         siteSubDomain: fakeSiteSubDomain,
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
-        sources: [s3deploy.Source.asset("./")],
+        sources: [s3deploy.Source.asset(STATIC_SITE)],
         websiteIndexDocument: "index.html",
         bucketDeploymentMemoryLimit: 2048,
       });
@@ -120,7 +124,7 @@ describe("CdnSiteHostingConstruct", () => {
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
         sourcesWithDeploymentOptions: [
-          { sources: [s3deploy.Source.asset("./")] },
+          { sources: [s3deploy.Source.asset(STATIC_SITE)] },
         ],
         websiteIndexDocument: "index.html",
         bucketDeploymentMemoryLimit: 2048,
@@ -143,7 +147,7 @@ describe("CdnSiteHostingConstruct", () => {
         siteSubDomain: fakeSiteSubDomain,
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
-        sources: [s3deploy.Source.asset("./")],
+        sources: [s3deploy.Source.asset(STATIC_SITE)],
         websiteIndexDocument: "index.html",
       });
     });
@@ -212,7 +216,7 @@ describe("CdnSiteHostingConstruct", () => {
             siteSubDomain: fakeSiteSubDomain,
             domainName: fakeDomain,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            sources: [s3deploy.Source.asset("./")],
+            sources: [s3deploy.Source.asset(STATIC_SITE)],
             websiteErrorDocument: "error.html",
             websiteIndexDocument: "/index.html",
           }),
@@ -232,7 +236,7 @@ describe("CdnSiteHostingConstruct", () => {
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
         isRoutedSpa: true,
-        sources: [s3deploy.Source.asset("./")],
+        sources: [s3deploy.Source.asset(STATIC_SITE)],
         websiteIndexDocument: "index.html",
       });
     });
@@ -275,7 +279,7 @@ describe("CdnSiteHostingConstruct", () => {
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
         isRoutedSpa: true,
-        sources: [s3deploy.Source.asset("./")],
+        sources: [s3deploy.Source.asset(STATIC_SITE)],
         websiteErrorDocument: "error.html",
         websiteIndexDocument: "index.html",
       });
@@ -322,12 +326,16 @@ describe("CdnSiteHostingConstruct", () => {
         sourcesWithDeploymentOptions: [
           {
             name: "source1",
-            sources: [s3deploy.Source.asset("./", { exclude: ["index.html"] })],
+            sources: [
+              s3deploy.Source.asset(STATIC_SITE, { exclude: ["index.html"] }),
+            ],
           },
           {
             name: "source2",
             sources: [
-              s3deploy.Source.asset("./", { exclude: ["*", "!index.html"] }),
+              s3deploy.Source.asset(STATIC_SITE, {
+                exclude: ["*", "!index.html"],
+              }),
             ],
           },
         ],
@@ -380,7 +388,7 @@ describe("CdnSiteHostingConstruct", () => {
         siteSubDomain: fakeSiteSubDomain,
         domainName: fakeDomain,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
-        sources: [s3deploy.Source.asset("./")],
+        sources: [s3deploy.Source.asset(STATIC_SITE)],
         websiteErrorDocument: "error.html",
         websiteIndexDocument: "index.html",
         securityPolicyProtocol: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
