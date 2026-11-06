@@ -5,9 +5,7 @@
     "noEmit": false,
     "rootDir": "lib",
     "outDir": "dist",
-    "declaration": true,
-    "inlineSourceMap": true,
-    "inlineSources": true
+    "declaration": true
   },
   "include": ["lib"],
   "exclude": []
