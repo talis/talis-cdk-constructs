@@ -1,8 +1,9 @@
 import type {
   APIGatewayAuthorizerResult,
+  APIGatewayRequestAuthorizerEvent,
+  APIGatewayRequestAuthorizerEventHeaders,
   APIGatewayRequestAuthorizerEventV2,
   APIGatewaySimpleAuthorizerWithContextResult,
-  APIGatewayTokenAuthorizerEvent,
 } from "aws-lambda";
 import {
   PersonaClient,
@@ -28,7 +29,7 @@ export async function httpApiHandler(
 ): Promise<
   APIGatewaySimpleAuthorizerWithContextResult<HttpApiAuthorizerContext>
 > {
-  const result = await authorize(event.headers?.authorization, event.routeArn);
+  const result = await authorize(event.headers, event.routeKey);
   const clientId = result.token?.sub ?? "";
   if (result.authorized) {
     return { isAuthorized: true, context: { clientId } };
@@ -41,11 +42,14 @@ export async function httpApiHandler(
   };
 }
 
-/** REST API (API Gateway v1) TOKEN authorizer returning an IAM policy. */
+/** REST API (API Gateway v1) REQUEST authorizer returning an IAM policy. */
 export async function restApiHandler(
-  event: APIGatewayTokenAuthorizerEvent,
+  event: APIGatewayRequestAuthorizerEvent,
 ): Promise<APIGatewayAuthorizerResult> {
-  const result = await authorize(event.authorizationToken, event.methodArn);
+  const result = await authorize(
+    event.headers,
+    `${event.httpMethod} ${event.resource}`,
+  );
   return {
     principalId: result.authorized ? (result.token.aud ?? "invalid_oauth") : "",
     policyDocument: {
@@ -65,64 +69,57 @@ type AuthorizeResult =
   | { authorized: true; token: TokenPayload }
   | { authorized: false; insufficientScope: boolean; token?: TokenPayload };
 
+/**
+ * @param routeKey `<METHOD> <route/resource template>`, e.g. `GET /items/{id}`
+ */
 async function authorize(
-  authorizationHeader: string | undefined,
-  arn: string,
+  headers: APIGatewayRequestAuthorizerEventHeaders | null | undefined,
+  routeKey: string,
 ): Promise<AuthorizeResult> {
-  const token = authorizationHeader?.replace("Bearer", "").trim();
+  const token = header(headers, "authorization")?.replace("Bearer", "").trim();
   if (!token) {
     // API Gateway responds 401 to this exact error message
     throw new Error("Unauthorized");
   }
 
-  const resourcePath = resourcePathFromArn(arn);
-  const scope = requiredScope(resourcePath);
+  const scope = requiredScope(routeKey);
+  // Pass the caller's X-Request-Id on to Persona for tracing
+  const requestId = header(headers, "x-request-id");
   try {
-    const decoded = await persona.validateToken(token, scope?.split(","));
+    const decoded = await persona.validateToken(
+      token,
+      scope?.split(","),
+      requestId,
+    );
     return { authorized: true, token: decoded };
   } catch (err) {
     if (err instanceof PersonaError) {
-      console.log(`Token rejected for ${resourcePath}: ${err.type}`);
+      console.log(`Token rejected for ${routeKey}: ${err.type}`);
       return {
         authorized: false,
         insufficientScope: err.type === "insufficient_scope",
         token: err.token,
       };
     }
-    console.error(`Token validation failed for ${resourcePath}:`, err);
+    console.error(`Token validation failed for ${routeKey}:`, err);
     return { authorized: false, insufficientScope: false };
   }
 }
 
-/**
- * Resource path of a method/route ARN, e.g.
- * `arn:aws:execute-api:eu-west-1:123:api-id/stage/GET/a/b` -> `/a/b`.
- */
-export function resourcePathFromArn(arn: string): string {
-  const apiGatewayArn = arn.split(":").slice(5).join(":");
-  return `/${apiGatewayArn.split("/").slice(3).join("/")}`;
-}
-
-/** Scope required by the first SCOPE_CONFIG path matching `resourcePath`. */
-export function requiredScope(resourcePath: string): string | undefined {
+/** Scope SCOPE_CONFIG requires for `routeKey`, if any. */
+export function requiredScope(routeKey: string): string | undefined {
   const config: Record<string, string> = JSON.parse(
     process.env.SCOPE_CONFIG ?? "{}",
   );
-  return Object.entries(config).find(([path]) =>
-    pathMatches(path, resourcePath),
-  )?.[1];
+  return Object.hasOwn(config, routeKey) ? config[routeKey] : undefined;
 }
 
-/** Matches a path against a definition where `{param}` matches any segment. */
-export function pathMatches(definition: string, path: string): boolean {
-  const definitionSegments = definition.split("/");
-  const pathSegments = path.split("/");
-  return (
-    definitionSegments.length === pathSegments.length &&
-    definitionSegments.every(
-      (segment, i) =>
-        (segment.startsWith("{") && segment.endsWith("}")) ||
-        segment === pathSegments[i],
-    )
-  );
+// HTTP API lowercases header names; REST API keeps them as sent
+function header(
+  headers: APIGatewayRequestAuthorizerEventHeaders | null | undefined,
+  name: string,
+): string | undefined {
+  return Object.entries(headers ?? {}).find(
+    ([key]) => key.toLowerCase() === name,
+  )?.[1];
 }

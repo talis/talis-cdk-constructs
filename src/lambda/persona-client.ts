@@ -48,14 +48,18 @@ export class PersonaClient {
    * Resolves with the decoded token, or rejects with a PersonaError.
    * At least one of `scopes` must be granted when given.
    */
-  async validateToken(token: string, scopes?: string[]): Promise<TokenPayload> {
-    const payload = verifyJwt(token, await this.getPublicKey());
+  async validateToken(
+    token: string,
+    scopes?: string[],
+    requestId: string = randomUUID(),
+  ): Promise<TokenPayload> {
+    const payload = verifyJwt(token, await this.getPublicKey(requestId));
 
     if (!scopes) {
       return payload;
     }
     if (payload.scopeCount !== undefined) {
-      await this.validateScopesRemotely(token, scopes, payload);
+      await this.validateScopesRemotely(token, scopes, payload, requestId);
       return payload;
     }
     if (!hasAnyScope(payload.scopes ?? [], scopes)) {
@@ -64,11 +68,11 @@ export class PersonaClient {
     return payload;
   }
 
-  private async getPublicKey(): Promise<KeyObject> {
+  private async getPublicKey(requestId: string): Promise<KeyObject> {
     if (this.publicKey && Date.now() < this.publicKey.expiresAt) {
       return this.publicKey.key;
     }
-    const response = await this.request("GET", "/3/oauth/keys");
+    const response = await this.request("GET", "/3/oauth/keys", requestId);
     if (response.status !== 200) {
       throw new PersonaError("communication_issue");
     }
@@ -81,11 +85,13 @@ export class PersonaClient {
     token: string,
     scopes: string[],
     payload: TokenPayload,
+    requestId: string,
   ): Promise<void> {
     const scopeParam = scopes.map(encodeURIComponent).join(",");
     const response = await this.request(
       "HEAD",
       `/3/oauth/tokens/${encodeURIComponent(token)}?scope=${scopeParam}`,
+      requestId,
     );
     switch (response.status) {
       case 204:
@@ -99,10 +105,14 @@ export class PersonaClient {
     }
   }
 
-  private request(method: string, path: string): Promise<Response> {
+  private request(
+    method: string,
+    path: string,
+    requestId: string,
+  ): Promise<Response> {
     return fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: { "User-Agent": this.userAgent, "X-Request-Id": randomUUID() },
+      headers: { "User-Agent": this.userAgent, "X-Request-Id": requestId },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   }

@@ -90,6 +90,7 @@ describe("AuthenticatedApi", () => {
             path: "/1/test-route-1",
             method: apigatewayv2.HttpMethod.GET,
             lambda: route1Handler,
+            requiredScope: "test:read",
           },
           {
             name: "route2",
@@ -159,9 +160,25 @@ describe("AuthenticatedApi", () => {
             PERSONA_OAUTH_ROUTE: "/oauth/tokens/",
             AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1",
             LAMBDA_EXECUTION_TIMEOUT: "120",
+            SCOPE_CONFIG: JSON.stringify({
+              "GET /1/test-route-1": "test:read",
+            }),
           },
         },
       });
+    });
+
+    test("caches authorizer results per route", () => {
+      Template.fromStack(stack).hasResourceProperties(
+        "AWS::ApiGatewayV2::Authorizer",
+        {
+          AuthorizerType: "REQUEST",
+          IdentitySource: [
+            "$request.header.Authorization",
+            "$context.routeKey",
+          ],
+        },
+      );
     });
 
     test("provisions lambdas for the routes", () => {

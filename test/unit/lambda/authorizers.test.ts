@@ -1,29 +1,50 @@
-import type { APIGatewayRequestAuthorizerEventV2 } from "aws-lambda";
+import type {
+  APIGatewayRequestAuthorizerEvent,
+  APIGatewayRequestAuthorizerEventV2,
+} from "aws-lambda";
 import {
   httpApiHandler,
-  pathMatches,
   requiredScope,
-  resourcePathFromArn,
   restApiHandler,
 } from "../../../src/lambda/authorizers";
-import { nowSeconds, personaFetch, signJwt } from "./jwt";
+import { nowSeconds, personaFetch, signJwt } from "../../fixtures/jwt";
 
 const ARN =
-  "arn:aws:execute-api:eu-west-1:123456789012:api-id/stage/GET/1/route1";
+  "arn:aws:execute-api:eu-west-1:123456789012:api-id/stage/GET/items/1";
 
-// Only the fields the authorizer reads; API Gateway sends many more
-function httpApiEvent(authorization?: string) {
+// Only the fields the authorizers read; API Gateway sends many more
+function httpApiEvent(
+  headers: Record<string, string | undefined>,
+  routeKey = "GET /items/{id}",
+) {
   const event: Partial<APIGatewayRequestAuthorizerEventV2> = {
     type: "REQUEST",
     routeArn: ARN,
-    headers: { authorization },
+    routeKey,
+    headers,
   };
   return event as APIGatewayRequestAuthorizerEventV2;
 }
 
+function restApiEvent(
+  headers: Record<string, string | undefined>,
+  httpMethod = "GET",
+) {
+  const event: Partial<APIGatewayRequestAuthorizerEvent> = {
+    type: "REQUEST",
+    methodArn: ARN,
+    httpMethod,
+    resource: "/items/{id}",
+    headers,
+  };
+  return event as APIGatewayRequestAuthorizerEvent;
+}
+
+const bearer = (payload: object) => `Bearer ${signJwt(payload)}`;
+
 beforeEach(() => {
   vi.stubGlobal("fetch", personaFetch());
-  vi.stubEnv("SCOPE_CONFIG", JSON.stringify({ "/1/route1": "read" }));
+  vi.stubEnv("SCOPE_CONFIG", JSON.stringify({ "GET /items/{id}": "read" }));
 });
 
 afterEach(() => {
@@ -31,79 +52,49 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("resourcePathFromArn", () => {
-  test.each([
-    [
-      "arn:aws:execute-api:us-west-2:123456789012:api-id/stage/GET/resource",
-      "/resource",
-    ],
-    [
-      "arn:aws:execute-api:eu-west-1:302477901552:atpstdpb1c/*/PUT/simple-resource/{simpleResourceId}",
-      "/simple-resource/{simpleResourceId}",
-    ],
-    ["arn:aws:execute-api:eu-west-1:1:api/stage/GET/", "/"],
-    ["arn:aws:execute-api:eu-west-1:1:api/stage/GET/a:b/c", "/a:b/c"],
-  ])("%s -> %s", (arn, expected) => {
-    expect(resourcePathFromArn(arn)).toBe(expected);
-  });
-});
-
-describe("pathMatches", () => {
-  test.each([
-    ["/1/route1", "/1/route1", true],
-    ["/1/route1", "/1/route2", false],
-    ["/1/a/b/route1", "/1/a/b/route1", true],
-    ["/1/route1/{id}", "/1/route1/test_id", true],
-    ["/1/route1/:id", "/1/route1/test_id", false],
-    ["/1/a/{id}/route1", "/1/a/test_id/route1", true],
-    ["/a/b/route1", "/a/b/c/route1", false],
-  ])("%s vs %s -> %s", (definition, path, expected) => {
-    expect(pathMatches(definition, path)).toBe(expected);
-  });
-});
-
 describe("requiredScope", () => {
-  test("returns the scope of the first matching path", () => {
-    vi.stubEnv(
-      "SCOPE_CONFIG",
-      JSON.stringify({ "/a/{id}": "first", "/a/b": "second" }),
-    );
-    expect(requiredScope("/a/b")).toBe("first");
-    expect(requiredScope("/c")).toBeUndefined();
+  test("looks up the exact method and route", () => {
+    expect(requiredScope("GET /items/{id}")).toBe("read");
+    expect(requiredScope("POST /items/{id}")).toBeUndefined();
+    expect(requiredScope("GET /items")).toBeUndefined();
+    expect(requiredScope("constructor")).toBeUndefined();
   });
 
   test("returns undefined without SCOPE_CONFIG", () => {
     vi.stubEnv("SCOPE_CONFIG", undefined);
-    expect(requiredScope("/a")).toBeUndefined();
+    expect(requiredScope("GET /items/{id}")).toBeUndefined();
   });
 });
 
 describe("httpApiHandler", () => {
-  const invoke = (authorization?: string) =>
-    httpApiHandler(httpApiEvent(authorization));
+  const invoke = (authorization?: string, routeKey?: string) =>
+    httpApiHandler(httpApiEvent({ authorization }, routeKey));
 
   test("authorizes a valid token with the required scope", async () => {
-    const token = signJwt({ sub: "client", scopes: ["read"] });
-    await expect(invoke(`Bearer ${token}`)).resolves.toEqual({
-      isAuthorized: true,
-      context: { clientId: "client" },
-    });
+    await expect(
+      invoke(bearer({ sub: "client", scopes: ["read"] })),
+    ).resolves.toEqual({ isAuthorized: true, context: { clientId: "client" } });
   });
 
   test("reports an insufficient scope", async () => {
-    const token = signJwt({ sub: "client", scopes: ["write"] });
-    await expect(invoke(`Bearer ${token}`)).resolves.toEqual({
+    await expect(
+      invoke(bearer({ sub: "client", scopes: ["write"] })),
+    ).resolves.toEqual({
       isAuthorized: false,
       context: { description: "Insufficient Scope", clientId: "client" },
     });
   });
 
+  test("only requires the scope configured for the route", async () => {
+    await expect(
+      invoke(bearer({ sub: "client", scopes: [] }), "POST /items/{id}"),
+    ).resolves.toMatchObject({ isAuthorized: true });
+  });
+
   test("denies an invalid token", async () => {
-    const token = signJwt({ sub: "client", exp: nowSeconds() - 1 });
-    await expect(invoke(`Bearer ${token}`)).resolves.toEqual({
-      isAuthorized: false,
-      context: { clientId: "" },
-    });
+    await expect(
+      invoke(bearer({ sub: "client", exp: nowSeconds() - 1 })),
+    ).resolves.toEqual({ isAuthorized: false, context: { clientId: "" } });
   });
 
   test("denies when Persona is unreachable", async () => {
@@ -114,7 +105,7 @@ describe("httpApiHandler", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
-      httpApiHandler(httpApiEvent(`Bearer ${signJwt({ sub: "client" })}`)),
+      httpApiHandler(httpApiEvent({ authorization: bearer({ sub: "c" }) })),
     ).resolves.toEqual({ isAuthorized: false, context: { clientId: "" } });
   });
 
@@ -127,8 +118,10 @@ describe("httpApiHandler", () => {
 });
 
 describe("restApiHandler", () => {
-  const invoke = (authorizationToken: string) =>
-    restApiHandler({ type: "TOKEN", authorizationToken, methodArn: ARN });
+  const invoke = (
+    headers: Record<string, string | undefined>,
+    method?: string,
+  ) => restApiHandler(restApiEvent(headers, method));
   const policy = (effect: string) => ({
     Version: "2012-10-17",
     Statement: [
@@ -137,22 +130,75 @@ describe("restApiHandler", () => {
   });
 
   test("allows a valid token, using its aud as principal", async () => {
-    const token = signJwt({ aud: "client-id", scopes: ["read"] });
-    await expect(invoke(`Bearer ${token}`)).resolves.toEqual({
+    await expect(
+      invoke({ Authorization: bearer({ aud: "client-id", scopes: ["read"] }) }),
+    ).resolves.toEqual({
       principalId: "client-id",
       policyDocument: policy("Allow"),
     });
   });
 
   test("denies a token without the required scope", async () => {
-    const token = signJwt({ aud: "client-id", scopes: ["write"] });
-    await expect(invoke(`Bearer ${token}`)).resolves.toEqual({
-      principalId: "",
-      policyDocument: policy("Deny"),
-    });
+    await expect(
+      invoke({
+        Authorization: bearer({ aud: "client-id", scopes: ["write"] }),
+      }),
+    ).resolves.toEqual({ principalId: "", policyDocument: policy("Deny") });
   });
 
-  test("throws Unauthorized for an empty token", async () => {
-    await expect(invoke("")).rejects.toThrow("Unauthorized");
+  test("only requires the scope configured for the method", async () => {
+    await expect(
+      invoke(
+        { Authorization: bearer({ aud: "client-id", scopes: [] }) },
+        "PUT",
+      ),
+    ).resolves.toMatchObject({ policyDocument: policy("Allow") });
+  });
+
+  test("reads the authorization header case-insensitively", async () => {
+    await expect(
+      invoke({ authorization: bearer({ aud: "client-id", scopes: ["read"] }) }),
+    ).resolves.toMatchObject({ policyDocument: policy("Allow") });
+  });
+
+  test.each([{}, { Authorization: "" }, { Authorization: "Bearer" }])(
+    "throws Unauthorized for headers %j",
+    async (headers) => {
+      await expect(invoke(headers)).rejects.toThrow("Unauthorized");
+    },
+  );
+});
+
+describe("X-Request-Id sent to Persona", () => {
+  // scopeCount forces a call to Persona on every request
+  const remoteScopeToken = bearer({ sub: "client", scopeCount: 50 });
+  const sentRequestId = () =>
+    (vi.mocked(fetch).mock.lastCall?.[1]?.headers as Record<string, string>)[
+      "X-Request-Id"
+    ];
+
+  test("forwards the caller's X-Request-Id (HTTP API)", async () => {
+    await httpApiHandler(
+      httpApiEvent({
+        authorization: remoteScopeToken,
+        "x-request-id": "caller-id",
+      }),
+    );
+    expect(sentRequestId()).toBe("caller-id");
+  });
+
+  test("forwards the caller's X-Request-Id (REST API)", async () => {
+    await restApiHandler(
+      restApiEvent({
+        Authorization: remoteScopeToken,
+        "X-Request-Id": "caller-id",
+      }),
+    );
+    expect(sentRequestId()).toBe("caller-id");
+  });
+
+  test("generates one when the caller sends none", async () => {
+    await httpApiHandler(httpApiEvent({ authorization: remoteScopeToken }));
+    expect(sentRequestId()).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
