@@ -154,10 +154,7 @@ describe("AuthenticatedApi", () => {
         Environment: {
           Variables: {
             PERSONA_CLIENT_NAME: "test-MyTestAuthenticatedApi-authoriser",
-            PERSONA_HOST: "staging-users.talis.com",
-            PERSONA_SCHEME: "https",
-            PERSONA_PORT: "443",
-            PERSONA_OAUTH_ROUTE: "/oauth/tokens/",
+            PERSONA_ORIGIN: "https://staging-users.talis.com:443",
             AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1",
             LAMBDA_EXECUTION_TIMEOUT: "120",
             SCOPE_CONFIG: JSON.stringify({
@@ -466,6 +463,36 @@ describe("AuthenticatedApi", () => {
       alarmTopic = new sns.Topic(stack, "TestAlarm", {
         topicName: "TestAlarm",
       });
+    });
+
+    test("passes personaOrigin to the authorizer", () => {
+      const { persona: _, ...props } = apiProps;
+      new AuthenticatedApi(stack, "MyTestAuthenticatedApi", {
+        ...props,
+        personaOrigin: "https://users.talis.com",
+        alarmTopic,
+      });
+
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        Handler: "index.httpApiHandler",
+        Environment: {
+          Variables: {
+            PERSONA_ORIGIN: "https://users.talis.com",
+            PERSONA_OAUTH_ROUTE: Match.absent(),
+          },
+        },
+      });
+    });
+
+    test("rejects both persona and personaOrigin", () => {
+      expect(
+        () =>
+          new AuthenticatedApi(stack, "MyTestAuthenticatedApi", {
+            ...apiProps,
+            personaOrigin: "https://users.talis.com",
+            alarmTopic,
+          }),
+      ).toThrow("Set either persona or personaOrigin, not both");
     });
 
     test("logging disabled by default", () => {

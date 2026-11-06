@@ -146,12 +146,7 @@ export class SimpleAuthenticatedApiStack extends cdk.Stack {
           `https://${prefix}simple-authenticated-api.talis.com`,
         ],
 
-        persona: {
-          host: "staging-users.talis.com",
-          scheme: "https",
-          port: "443",
-          oauth_route: "/oauth/tokens/",
-        },
+        personaOrigin: "https://staging-users.talis.com",
 
         lambdaRoutes: [
           {

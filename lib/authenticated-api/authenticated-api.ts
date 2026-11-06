@@ -15,6 +15,7 @@ import { AuthenticatedApiProps } from "./authenticated-api-props";
 import { RouteLambdaProps } from "./route-lambda-props";
 import { RouteUrlProps } from "./route-url-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
+import { resolvePersonaOrigin } from "../util/persona-origin";
 
 const DEFAULT_API_LATENCY_THRESHOLD = cdk.Duration.minutes(1);
 const DEFAULT_LAMBDA_DURATION_THRESHOLD = cdk.Duration.minutes(1);
@@ -136,10 +137,7 @@ export class AuthenticatedApi extends Construct {
         environment: buildLambdaEnvironment({
           environment: {
             PERSONA_CLIENT_NAME: `${apiName}-authoriser`,
-            PERSONA_HOST: props.persona.host,
-            PERSONA_SCHEME: props.persona.scheme,
-            PERSONA_PORT: props.persona.port,
-            PERSONA_OAUTH_ROUTE: props.persona.oauth_route,
+            PERSONA_ORIGIN: resolvePersonaOrigin(props),
             // Lazy: addUrlRoute can add scoped routes after construction
             SCOPE_CONFIG: cdk.Lazy.string({
               produce: () => JSON.stringify(this.scopeConfig),

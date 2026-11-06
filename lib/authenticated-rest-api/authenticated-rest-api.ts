@@ -14,6 +14,7 @@ import * as path from "node:path";
 import { AuthenticatedRestApiProps } from "./authenticated-rest-api-props";
 import { ResourceProps } from "./resource-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
+import { resolvePersonaOrigin } from "../util/persona-origin";
 
 const DEFAULT_API_LATENCY_THRESHOLD = cdk.Duration.minutes(1);
 const DEFAULT_LAMBDA_DURATION_THRESHOLD = cdk.Duration.minutes(1);
@@ -95,10 +96,7 @@ export class AuthenticatedRestApi extends Construct {
         environment: buildLambdaEnvironment({
           environment: {
             PERSONA_CLIENT_NAME: `${apiName}-authoriser`,
-            PERSONA_HOST: props.persona.host,
-            PERSONA_SCHEME: props.persona.scheme,
-            PERSONA_PORT: props.persona.port,
-            PERSONA_OAUTH_ROUTE: props.persona.oauth_route,
+            PERSONA_ORIGIN: resolvePersonaOrigin(props),
             SCOPE_CONFIG: JSON.stringify(scopeConfig),
           },
           timeout: authLambdaTimeout,

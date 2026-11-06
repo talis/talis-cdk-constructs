@@ -23,6 +23,7 @@ Builds are conducted by CircleCI, and upon successful build of the `main` branch
 - `AuthenticatedApi`(http api)
   - An API Gateway (v2)
   - Built in optional Persona authentication on routes
+    - Point it at Persona with `personaOrigin` (e.g. `"https://users.talis.com"`) or the `persona` host/scheme/port object
   - Details [here](/examples/simple-authenticated-api/README.md).
 
 - `AuthenticatedRestApi`(rest api)
