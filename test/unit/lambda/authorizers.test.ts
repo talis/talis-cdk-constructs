@@ -213,8 +213,16 @@ describe("X-Request-Id sent to Persona", () => {
     expect(sentRequestId()).toBe("caller-id");
   });
 
-  test("generates one when the caller sends none", async () => {
-    await httpApiHandler(httpApiEvent({ authorization: remoteScopeToken }));
-    expect(sentRequestId()).toMatch(/^[0-9a-f-]{36}$/);
-  });
+  test.each([undefined, ""])(
+    "generates one when the caller sends %j",
+    async (requestId) => {
+      await httpApiHandler(
+        httpApiEvent({
+          authorization: remoteScopeToken,
+          "x-request-id": requestId,
+        }),
+      );
+      expect(sentRequestId()).toMatch(/^[0-9a-f-]{36}$/);
+    },
+  );
 });
