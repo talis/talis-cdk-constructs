@@ -182,6 +182,13 @@ export class SimpleAuthenticatedApiStack extends cdk.Stack {
             lambda: route4Handler,
             requiredScope: "analytics:admin",
           },
+          {
+            // Authenticated, but no scope required
+            name: "route5",
+            path: "/1/route5",
+            method: apigatewayv2.HttpMethod.GET,
+            lambda: route2Handler,
+          },
         ],
       },
     );

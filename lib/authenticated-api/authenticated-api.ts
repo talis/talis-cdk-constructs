@@ -121,7 +121,9 @@ export class AuthenticatedApi extends Construct {
     if (props.lambdaRoutes) {
       for (const routeProps of props.lambdaRoutes) {
         if (routeProps.requiredScope) {
-          scopeConfig[routeProps.path] = routeProps.requiredScope;
+          // Keyed like the authorizer event's routeKey, e.g. "GET /1/items/{id}"
+          scopeConfig[`${routeProps.method} ${routeProps.path}`] =
+            routeProps.requiredScope;
         }
       }
     }
@@ -167,6 +169,8 @@ export class AuthenticatedApi extends Construct {
       authLambda,
       {
         authorizerName: `${apiName}-http-lambda-authoriser`,
+        // Decisions depend on the route's required scope, so cache per route
+        identitySource: ["$request.header.Authorization", "$context.routeKey"],
         responseTypes: [authorizers.HttpLambdaResponseType.SIMPLE], // Define if returns simple and/or iam response
       },
     );

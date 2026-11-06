@@ -73,7 +73,9 @@ export class AuthenticatedRestApi extends Construct {
 
     this.alarmAction = new cloudwatchActions.SnsAction(props.alarmTopic);
 
-    const scopeConfig: { [k: string]: string } = {};
+    // Methods may require scopes; the authorizer looks them up by the
+    // request's "<METHOD> <resource>", e.g. "PUT /items/{itemId}"
+    const scopeConfig = collectRequiredScopes(props.resourceProps);
 
     const authLambdaTimeout = cdk.Duration.minutes(2);
 
@@ -111,14 +113,20 @@ export class AuthenticatedRestApi extends Construct {
       },
     );
 
-    const authorizer = new apigateway.TokenAuthorizer(
+    // REQUEST (not TOKEN) so the authorizer sees the method and resource
+    // for scope checks, and the X-Request-Id header
+    const authorizer = new apigateway.RequestAuthorizer(
       this,
       "lambda-authorizer",
       {
         handler: authLambda,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
         resultsCacheTtl: cdk.Duration.seconds(0),
       },
     );
+    // Force a new stage deployment so the TOKEN -> REQUEST authorizer switch
+    // takes effect even without @aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId
+    this.restApi.latestDeployment?.addToLogicalId({ authorizer: "REQUEST" });
 
     if (props.resourceProps) {
       for (const resourceProp of props.resourceProps) {
@@ -244,4 +252,23 @@ export class AuthenticatedRestApi extends Construct {
       this.addResource(apiName, nestedResource, authorizer, resource),
     );
   }
+}
+
+function collectRequiredScopes(
+  resources: ResourceProps[] | undefined,
+  parentPath = "",
+  scopes: Record<string, string> = {},
+): Record<string, string> {
+  for (const resource of resources ?? []) {
+    const path = `${parentPath}/${resource.name}`;
+    for (const [method, methodProps] of Object.entries(
+      resource.methods ?? {},
+    )) {
+      if (methodProps.requiredScope) {
+        scopes[`${method.toUpperCase()} ${path}`] = methodProps.requiredScope;
+      }
+    }
+    collectRequiredScopes(resource.nestedResources, path, scopes);
+  }
+  return scopes;
 }

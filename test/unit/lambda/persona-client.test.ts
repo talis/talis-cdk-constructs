@@ -5,7 +5,12 @@ import {
   PersonaError,
   verifyJwt,
 } from "../../../src/lambda/persona-client";
-import { nowSeconds, personaFetch, publicKey, signJwt } from "./jwt";
+import {
+  nowSeconds,
+  personaFetch,
+  publicKey,
+  signJwt,
+} from "../../fixtures/jwt";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -111,6 +116,18 @@ describe("PersonaClient.validateToken", () => {
     );
     expect(fetch.mock.calls[0][1]?.headers).toMatchObject({
       "User-Agent": "test-agent",
+      "X-Request-Id": expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+  });
+
+  test("sends the given X-Request-Id", async () => {
+    const fetch = personaFetch();
+    vi.stubGlobal("fetch", fetch);
+
+    await client().validateToken(signJwt({}), undefined, "trace-id");
+
+    expect(fetch.mock.calls[0][1]?.headers).toMatchObject({
+      "X-Request-Id": "trace-id",
     });
   });
 

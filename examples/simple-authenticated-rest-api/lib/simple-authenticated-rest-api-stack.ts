@@ -153,6 +153,7 @@ export class SimpleAuthenticatedRestApiStack extends cdk.Stack {
               function: route2Handler,
               lambdaDurationAlarmThreshold: cdk.Duration.seconds(30),
               isPublic: false, // This is the default
+              requiredScope: "analytics:admin",
             },
           },
           nestedResources: [
