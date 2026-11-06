@@ -81,7 +81,9 @@ async function authorize(
   headers: APIGatewayRequestAuthorizerEventHeaders | null | undefined,
   routeKey: string,
 ): Promise<AuthorizeResult> {
-  const token = header(headers, "authorization")?.replace("Bearer", "").trim();
+  const token = header(headers, "authorization")
+    ?.replace(/^bearer\b/i, "")
+    .trim();
   if (!token) {
     // API Gateway responds 401 to this exact error message
     throw new Error("Unauthorized");

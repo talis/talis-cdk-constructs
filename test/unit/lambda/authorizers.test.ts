@@ -171,6 +171,13 @@ describe("restApiHandler", () => {
     ).resolves.toMatchObject({ policyDocument: policy("Allow") });
   });
 
+  test("accepts the Bearer scheme in any case", async () => {
+    const token = signJwt({ aud: "client-id", scopes: ["read"] });
+    await expect(
+      invoke({ Authorization: `bearer ${token}` }),
+    ).resolves.toMatchObject({ policyDocument: policy("Allow") });
+  });
+
   test("reads the authorization header case-insensitively", async () => {
     await expect(
       invoke({ authorization: bearer({ aud: "client-id", scopes: ["read"] }) }),
