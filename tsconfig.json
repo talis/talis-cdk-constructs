@@ -12,6 +12,6 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["lib", "src/lambda", "src/types", "test", "examples", "*.ts"],
+  "include": ["lib", "src/lambda", "test", "examples", "*.ts"],
   "exclude": ["**/node_modules", "**/cdk.out"]
 }

@@ -148,7 +148,7 @@ describe("AuthenticatedApi", () => {
       Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
         FunctionName: "test-MyTestAuthenticatedApi-authoriser",
         Timeout: 120,
-        Handler: "index.validateToken",
+        Handler: "index.httpApiHandler",
         Runtime: "nodejs24.x",
         Environment: {
           Variables: {

@@ -30,7 +30,6 @@
     "@aws-sdk/client-sqs": "3.1163.0",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
-    "@types/lodash": "4.17.27",
     "@types/node": "22.20.5",
     "aws-cdk": "2.1148.0",
     "aws-cdk-lib": "2.275.0",
@@ -42,7 +41,6 @@
     "oxfmt": "0.76.0",
     "oxlint": "1.91.0",
     "semantic-release": "25.0.9",
-    "talis-node": "github:talis/talis-node#v0.2.3",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.1.0"
