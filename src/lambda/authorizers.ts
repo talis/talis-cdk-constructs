@@ -88,8 +88,8 @@ async function authorize(
   }
 
   const scope = requiredScope(routeKey);
-  // Pass the caller's X-Request-Id on to Persona for tracing
-  const requestId = header(headers, "x-request-id");
+  // Pass the caller's X-Request-Id on to Persona for tracing; an empty one gets generated
+  const requestId = header(headers, "x-request-id") || undefined;
   try {
     const decoded = await persona.validateToken(
       token,
