@@ -1,3 +1,8 @@
+// The authorizers read SCOPE_CONFIG once, when the module loads
+vi.hoisted(() => {
+  process.env.SCOPE_CONFIG = JSON.stringify({ "GET /items/{id}": "read" });
+});
+
 import type {
   APIGatewayRequestAuthorizerEvent,
   APIGatewayRequestAuthorizerEventV2,
@@ -44,7 +49,6 @@ const bearer = (payload: object) => `Bearer ${signJwt(payload)}`;
 
 beforeEach(() => {
   vi.stubGlobal("fetch", personaFetch());
-  vi.stubEnv("SCOPE_CONFIG", JSON.stringify({ "GET /items/{id}": "read" }));
 });
 
 afterEach(() => {
@@ -60,8 +64,11 @@ describe("requiredScope", () => {
     expect(requiredScope("constructor")).toBeUndefined();
   });
 
-  test("returns undefined without SCOPE_CONFIG", () => {
+  test("returns undefined without SCOPE_CONFIG", async () => {
     vi.stubEnv("SCOPE_CONFIG", undefined);
+    vi.resetModules();
+    const { requiredScope } =
+      await import("../../../src/lambda/authorizers.js");
     expect(requiredScope("GET /items/{id}")).toBeUndefined();
   });
 });

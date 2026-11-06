@@ -17,6 +17,11 @@ const persona = new PersonaClient(
   `${process.env.PERSONA_CLIENT_NAME} (lambda)`,
 );
 
+// Required scope per "<METHOD> <route>", set by the construct
+const scopeConfig: Record<string, string> = JSON.parse(
+  process.env.SCOPE_CONFIG ?? "{}",
+);
+
 /** Passed to route handlers as `requestContext.authorizer.lambda`. */
 export interface HttpApiAuthorizerContext {
   clientId: string;
@@ -108,10 +113,9 @@ async function authorize(
 
 /** Scope SCOPE_CONFIG requires for `routeKey`, if any. */
 export function requiredScope(routeKey: string): string | undefined {
-  const config: Record<string, string> = JSON.parse(
-    process.env.SCOPE_CONFIG ?? "{}",
-  );
-  return Object.hasOwn(config, routeKey) ? config[routeKey] : undefined;
+  return Object.hasOwn(scopeConfig, routeKey)
+    ? scopeConfig[routeKey]
+    : undefined;
 }
 
 // HTTP API lowercases header names; REST API keeps them as sent
