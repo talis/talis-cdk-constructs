@@ -54,6 +54,36 @@ describe("AuthenticatedRestApi", () => {
                 PUT: { ...method, requiredScope: "items:write,su@items" },
                 DELETE: method,
               },
+              nestedResources: [
+                {
+                  name: "tags",
+                  methods: { ANY: { ...method, requiredScope: "tags:write" } },
+                  nestedResources: [
+                    {
+                      name: "{tagId}",
+                      // Lowercase: API Gateway and the scope keys use uppercase
+                      methods: {
+                        get: { ...method, requiredScope: "tags:read" },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // No methods of its own; a same-named "items" further down
+          name: "users",
+          nestedResources: [
+            {
+              name: "{userId}",
+              nestedResources: [
+                {
+                  name: "items",
+                  methods: { GET: { ...method, requiredScope: "users:read" } },
+                },
+              ],
             },
           ],
         },
@@ -90,9 +120,40 @@ describe("AuthenticatedRestApi", () => {
           SCOPE_CONFIG: JSON.stringify({
             "POST /items": "items:write",
             "PUT /items/{itemId}": "items:write,su@items",
+            "ANY /items/{itemId}/tags": "tags:write",
+            "GET /items/{itemId}/tags/{tagId}": "tags:read",
+            "GET /users/{userId}/items": "users:read",
           }),
         },
       },
     });
+  });
+
+  // Scope keys and resources are built by separate walks over resourceProps
+  test("keys every scope by an authorized method the API actually has", () => {
+    const resources = template.findResources("AWS::ApiGateway::Resource");
+    const pathOf = (id: string): string => {
+      const { PathPart, ParentId } = resources[id].Properties;
+      // Children of the root reference it with Fn::GetAtt, not Ref
+      return ParentId.Ref
+        ? `${pathOf(ParentId.Ref)}/${PathPart}`
+        : `/${PathPart}`;
+    };
+    const authorizedMethods = Object.values(
+      template.findResources("AWS::ApiGateway::Method", {
+        Properties: { AuthorizationType: "CUSTOM" },
+      }),
+    ).map(({ Properties: p }) => `${p.HttpMethod} ${pathOf(p.ResourceId.Ref)}`);
+    const [authorizer] = Object.values(
+      template.findResources("AWS::Lambda::Function", {
+        Properties: { Handler: "index.restApiHandler" },
+      }),
+    );
+    const scopeKeys = Object.keys(
+      JSON.parse(authorizer.Properties.Environment.Variables.SCOPE_CONFIG),
+    );
+
+    expect(scopeKeys).toHaveLength(5);
+    expect(authorizedMethods).toEqual(expect.arrayContaining(scopeKeys));
   });
 });
