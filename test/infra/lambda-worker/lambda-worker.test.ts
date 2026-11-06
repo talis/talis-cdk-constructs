@@ -1,5 +1,5 @@
 import * as cdk from "aws-cdk-lib";
-import * as path from "path";
+import * as path from "node:path";
 import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { aws_iam as iam } from "aws-cdk-lib";
 import { aws_sns as sns } from "aws-cdk-lib";
