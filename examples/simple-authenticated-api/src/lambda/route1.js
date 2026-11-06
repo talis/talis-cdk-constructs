@@ -8,7 +8,10 @@ class Route {
 
     return {
       statusCode: 200,
-      headers: {},
+      // Echo the authorizer context so integration tests can check it
+      headers: {
+        "x-client-id": this.event.requestContext.authorizer?.lambda?.clientId,
+      },
       body: "route 1",
     };
   }

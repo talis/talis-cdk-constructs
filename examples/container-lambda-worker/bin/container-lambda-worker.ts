@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import { ContainerLambdaWorkerStack } from "../lib/container-lambda-worker-stack";
 import { TalisDeploymentEnvironment } from "../../../lib";

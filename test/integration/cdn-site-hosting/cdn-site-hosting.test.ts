@@ -1,5 +1,5 @@
 import axios from "axios";
-import { CloudFront } from "aws-sdk";
+import { CloudFront } from "@aws-sdk/client-cloudfront";
 
 async function assertWebsiteCreated(url: string, content: string) {
   const response = await axios.get(url);
@@ -10,7 +10,7 @@ async function assertWebsiteCreated(url: string, content: string) {
 async function assertWebsiteDoesNotExist(url: string, errorMessage: string) {
   try {
     await axios.get(url);
-    fail("Expected to fail");
+    expect.unreachable("Expected to fail");
   } catch (err) {
     if (axios.isAxiosError(err)) {
       expect(err.message).toBe(errorMessage);
@@ -24,14 +24,17 @@ async function findCloudfrontDistributionDomainName(
   name: string,
 ): Promise<string> {
   const client = new CloudFront();
-  const response = await client.listDistributions().promise();
+  const response = await client.listDistributions({});
 
   if (!response.DistributionList?.Items) {
     throw Error("Distribution not found");
   }
 
   for (const distribution of response.DistributionList.Items) {
-    if (distribution.Aliases.Items?.includes(name)) {
+    if (
+      distribution.Aliases?.Items?.includes(name) &&
+      distribution.DomainName
+    ) {
       return distribution.DomainName;
     }
   }
@@ -41,16 +44,16 @@ async function findCloudfrontDistributionDomainName(
 
 async function findCloudfrontDistributionAliases(
   name: string,
-): Promise<CloudFront.AliasList> {
+): Promise<string[]> {
   const client = new CloudFront();
-  const response = await client.listDistributions().promise();
+  const response = await client.listDistributions({});
 
   if (!response.DistributionList?.Items) {
     throw Error("Distribution not found");
   }
 
   for (const distribution of response.DistributionList.Items) {
-    if (distribution.Aliases.Items?.includes(name)) {
+    if (distribution.Aliases?.Items?.includes(name)) {
       return distribution.Aliases.Items;
     }
   }

@@ -9,11 +9,12 @@ import { aws_logs as awslogs } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { aws_lambda_nodejs as lambdaNodeJs } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as path from "path";
+import * as path from "node:path";
 
 import { AuthenticatedRestApiProps } from "./authenticated-rest-api-props";
 import { ResourceProps } from "./resource-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
+import { resolvePersonaOrigin } from "../util/persona-origin";
 
 const DEFAULT_API_LATENCY_THRESHOLD = cdk.Duration.minutes(1);
 const DEFAULT_LAMBDA_DURATION_THRESHOLD = cdk.Duration.minutes(1);
@@ -73,7 +74,9 @@ export class AuthenticatedRestApi extends Construct {
 
     this.alarmAction = new cloudwatchActions.SnsAction(props.alarmTopic);
 
-    const scopeConfig: { [k: string]: string } = {};
+    // Methods may require scopes; the authorizer looks them up by the
+    // request's "<METHOD> <resource>", e.g. "PUT /items/{itemId}"
+    const scopeConfig = collectRequiredScopes(props.resourceProps);
 
     const authLambdaTimeout = cdk.Duration.minutes(2);
 
@@ -87,44 +90,20 @@ export class AuthenticatedRestApi extends Construct {
         functionName: `${apiName}-authoriser`,
 
         depsLockFilePath: path.resolve(libPath, "src/npm-shrinkwrap.json"),
-        entry: path.resolve(libPath, "src/lambda/rest-api/authorizer.js"),
-        handler: "validateToken",
-
-        bundling: {
-          commandHooks: {
-            beforeBundling: () => {
-              return ["npm ci"];
-            },
-            beforeInstall: () => [],
-            afterBundling: () => [],
-          },
-          externalModules: [
-            "aws-sdk",
-
-            // hiredis is pulled in as a dependency from talis-node
-            // It has dependencies on gcc g++ and python to compile code during an npm install
-            // The redis cache is an optional parameter to the persona client in talis-node
-            // which we do not use in serverless projects. Remove this from the bundle created
-            // by esbuild to remove unnecessary issues with gcc/g++/python/node which have
-            // no impact as we do not use redis here.
-            "hiredis",
-          ],
-        },
+        entry: path.resolve(libPath, "src/lambda/authorizers.ts"),
+        handler: "restApiHandler",
 
         environment: buildLambdaEnvironment({
           environment: {
             PERSONA_CLIENT_NAME: `${apiName}-authoriser`,
-            PERSONA_HOST: props.persona.host,
-            PERSONA_SCHEME: props.persona.scheme,
-            PERSONA_PORT: props.persona.port,
-            PERSONA_OAUTH_ROUTE: props.persona.oauth_route,
+            PERSONA_ORIGIN: resolvePersonaOrigin(props),
             SCOPE_CONFIG: JSON.stringify(scopeConfig),
           },
           timeout: authLambdaTimeout,
         }),
 
         awsSdkConnectionReuse: true,
-        runtime: lambda.Runtime.NODEJS_22_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         timeout: authLambdaTimeout,
         securityGroups: props.securityGroups,
         vpc: props.vpc,
@@ -132,14 +111,20 @@ export class AuthenticatedRestApi extends Construct {
       },
     );
 
-    const authorizer = new apigateway.TokenAuthorizer(
+    // REQUEST (not TOKEN) so the authorizer sees the method and resource
+    // for scope checks, and the X-Request-Id header
+    const authorizer = new apigateway.RequestAuthorizer(
       this,
       "lambda-authorizer",
       {
         handler: authLambda,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
         resultsCacheTtl: cdk.Duration.seconds(0),
       },
     );
+    // Force a new stage deployment so the TOKEN -> REQUEST authorizer switch
+    // takes effect even without @aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId
+    this.restApi.latestDeployment?.addToLogicalId({ authorizer: "REQUEST" });
 
     if (props.resourceProps) {
       for (const resourceProp of props.resourceProps) {
@@ -265,4 +250,23 @@ export class AuthenticatedRestApi extends Construct {
       this.addResource(apiName, nestedResource, authorizer, resource),
     );
   }
+}
+
+function collectRequiredScopes(
+  resources: ResourceProps[] | undefined,
+  parentPath = "",
+  scopes: Record<string, string> = {},
+): Record<string, string> {
+  for (const resource of resources ?? []) {
+    const path = `${parentPath}/${resource.name}`;
+    for (const [method, methodProps] of Object.entries(
+      resource.methods ?? {},
+    )) {
+      if (methodProps.requiredScope) {
+        scopes[`${method.toUpperCase()} ${path}`] = methodProps.requiredScope;
+      }
+    }
+    collectRequiredScopes(resource.nestedResources, path, scopes);
+  }
+  return scopes;
 }

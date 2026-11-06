@@ -6,17 +6,16 @@ import { aws_lambda as lambda } from "aws-cdk-lib";
 import { aws_lambda_nodejs as lambda_nodejs } from "aws-cdk-lib";
 
 // Lambda properties for different runtimes
-export interface FunctionLambdaProps
-  extends Pick<
-    lambda_nodejs.NodejsFunctionProps,
-    | "entry"
-    | "handler"
-    | "runtime"
-    | "awsSdkConnectionReuse"
-    | "depsLockFilePath"
-    | "bundling"
-    | "projectRoot"
-  > {
+export interface FunctionLambdaProps extends Pick<
+  lambda_nodejs.NodejsFunctionProps,
+  | "entry"
+  | "handler"
+  | "runtime"
+  | "awsSdkConnectionReuse"
+  | "depsLockFilePath"
+  | "bundling"
+  | "projectRoot"
+> {
   handler: string;
   entry: string;
   /** @default true */

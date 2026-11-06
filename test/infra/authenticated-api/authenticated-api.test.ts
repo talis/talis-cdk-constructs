@@ -4,7 +4,7 @@ import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { aws_sns as sns } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { Template, Match } from "aws-cdk-lib/assertions";
-import * as path from "path";
+import * as path from "node:path";
 
 import { AuthenticatedApi, AuthenticatedApiFunction } from "../../../lib";
 
@@ -90,6 +90,7 @@ describe("AuthenticatedApi", () => {
             path: "/1/test-route-1",
             method: apigatewayv2.HttpMethod.GET,
             lambda: route1Handler,
+            requiredScope: "test:read",
           },
           {
             name: "route2",
@@ -148,20 +149,33 @@ describe("AuthenticatedApi", () => {
       Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
         FunctionName: "test-MyTestAuthenticatedApi-authoriser",
         Timeout: 120,
-        Handler: "index.validateToken",
-        Runtime: "nodejs22.x",
+        Handler: "index.httpApiHandler",
+        Runtime: "nodejs24.x",
         Environment: {
           Variables: {
             PERSONA_CLIENT_NAME: "test-MyTestAuthenticatedApi-authoriser",
-            PERSONA_HOST: "staging-users.talis.com",
-            PERSONA_SCHEME: "https",
-            PERSONA_PORT: "443",
-            PERSONA_OAUTH_ROUTE: "/oauth/tokens/",
+            PERSONA_ORIGIN: "https://staging-users.talis.com:443",
             AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1",
             LAMBDA_EXECUTION_TIMEOUT: "120",
+            SCOPE_CONFIG: JSON.stringify({
+              "GET /1/test-route-1": "test:read",
+            }),
           },
         },
       });
+    });
+
+    test("caches authorizer results per route", () => {
+      Template.fromStack(stack).hasResourceProperties(
+        "AWS::ApiGatewayV2::Authorizer",
+        {
+          AuthorizerType: "REQUEST",
+          IdentitySource: [
+            "$request.header.Authorization",
+            "$context.routeKey",
+          ],
+        },
+      );
     });
 
     test("provisions lambdas for the routes", () => {
@@ -340,7 +354,7 @@ describe("AuthenticatedApi", () => {
         ipAddresses: ec2.IpAddresses.cidr("10.0.0.0/16"),
       });
 
-      new AuthenticatedApi(stack, "MyTestAuthenticatedApi", {
+      const api = new AuthenticatedApi(stack, "MyTestAuthenticatedApi", {
         prefix: `test-`,
         name: "MyTestAuthenticatedApiWithUrlRoutes",
         description: "A simple example API",
@@ -369,6 +383,7 @@ describe("AuthenticatedApi", () => {
             baseUrl: "https://www.example.com",
             path: "/api/index.html",
             method: apigatewayv2.HttpMethod.GET,
+            isPublic: true,
           },
           {
             name: "route2",
@@ -376,27 +391,50 @@ describe("AuthenticatedApi", () => {
             path: "/docs/index.html",
             method: apigatewayv2.HttpMethod.GET,
           },
+          {
+            name: "route3",
+            baseUrl: "https://www.example.com",
+            path: "/admin/index.html",
+            method: apigatewayv2.HttpMethod.GET,
+            requiredScope: "admin:read",
+          },
         ],
+      });
+
+      api.addUrlRoute({
+        name: "route4",
+        baseUrl: "https://www.example.com",
+        path: "/added/{id}",
+        method: apigatewayv2.HttpMethod.POST,
+        requiredScope: "admin:write",
       });
     });
 
-    test("provisions routes", () => {
-      Template.fromStack(stack).resourceCountIs("AWS::ApiGatewayV2::Route", 2);
+    test.each([
+      ["GET /api/index.html", "NONE"],
+      ["GET /docs/index.html", "CUSTOM"],
+      ["GET /admin/index.html", "CUSTOM"],
+      ["POST /added/{id}", "CUSTOM"],
+    ])("provisions route %s with %s authorization", (routeKey, authType) => {
+      Template.fromStack(stack).resourceCountIs("AWS::ApiGatewayV2::Route", 4);
+      Template.fromStack(stack).hasResourceProperties(
+        "AWS::ApiGatewayV2::Route",
+        { RouteKey: routeKey, AuthorizationType: authType },
+      );
+    });
 
-      Template.fromStack(stack).hasResourceProperties(
-        "AWS::ApiGatewayV2::Route",
-        {
-          RouteKey: "GET /api/index.html",
-          AuthorizationType: "NONE",
+    test("puts url routes' scopes, including added ones, in the authorizer config", () => {
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        Handler: "index.httpApiHandler",
+        Environment: {
+          Variables: Match.objectLike({
+            SCOPE_CONFIG: JSON.stringify({
+              "GET /admin/index.html": "admin:read",
+              "POST /added/{id}": "admin:write",
+            }),
+          }),
         },
-      );
-      Template.fromStack(stack).hasResourceProperties(
-        "AWS::ApiGatewayV2::Route",
-        {
-          RouteKey: "GET /docs/index.html",
-          AuthorizationType: "NONE",
-        },
-      );
+      });
     });
   });
 
@@ -425,6 +463,36 @@ describe("AuthenticatedApi", () => {
       alarmTopic = new sns.Topic(stack, "TestAlarm", {
         topicName: "TestAlarm",
       });
+    });
+
+    test("passes personaOrigin to the authorizer", () => {
+      const { persona: _, ...props } = apiProps;
+      new AuthenticatedApi(stack, "MyTestAuthenticatedApi", {
+        ...props,
+        personaOrigin: "https://users.talis.com",
+        alarmTopic,
+      });
+
+      Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+        Handler: "index.httpApiHandler",
+        Environment: {
+          Variables: {
+            PERSONA_ORIGIN: "https://users.talis.com",
+            PERSONA_OAUTH_ROUTE: Match.absent(),
+          },
+        },
+      });
+    });
+
+    test("rejects both persona and personaOrigin", () => {
+      expect(
+        () =>
+          new AuthenticatedApi(stack, "MyTestAuthenticatedApi", {
+            ...apiProps,
+            personaOrigin: "https://users.talis.com",
+            alarmTopic,
+          }),
+      ).toThrow("Set either persona or personaOrigin, not both");
     });
 
     test("logging disabled by default", () => {

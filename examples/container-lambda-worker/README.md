@@ -14,7 +14,7 @@ The LambdaWorker:
 
 The Container LambdaWorker:
 
-- is run from an existing container image tag within an ecr repository
+- is run from a container image built from the `container` directory
 
 Optionionally, the LambdaWorker:
 
@@ -26,10 +26,8 @@ Optionionally, the LambdaWorker:
 
 The ContainerLambdaWorkerStack:
 
-- creates an ecr repository
-- builds the docker image from the `container` directory
-- publishes the docker image as `example-UUID` to the created repository
-- creates the LambdaWorker from the given image and repository
+- builds the docker image from the `container` directory as a CDK image asset (Docker is required to deploy)
+- creates the LambdaWorker from that image
 
 ## Construct Diagram
 
@@ -47,19 +45,15 @@ To build and deploy this example:
 - `export AWS_PREFIX=development-XX-` where XX are your initials
   - This is used in the name of the stack and resources created, so that they do not clash with anyone elses stack in AWS
 - `source awsenv <profile>` to set your credentials to the shared account
-- `npm install`
-- `npm run build`
-- `cdk deploy`
+- `npm ci` in the repository root (examples share its dependencies and run straight from TypeScript via `tsx`)
+- `npx cdk deploy`
 
 After you have finished with the example, remove your stack in AWS using:
 
-- `cdk destroy`
+- `npx cdk destroy`
 
 ## Useful commands
 
-- `npm run build` compile typescript to js
-- `npm run watch` watch for changes and compile
-- `npm run test` perform the jest unit tests
-- `cdk deploy` deploy this stack to your default AWS account/region
-- `cdk diff` compare deployed stack with current state
-- `cdk synth` emits the synthesized CloudFormation template
+- `npx cdk deploy` deploy this stack to your default AWS account/region
+- `npx cdk diff` compare deployed stack with current state
+- `npx cdk synth` emits the synthesized CloudFormation template

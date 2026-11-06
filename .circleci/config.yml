@@ -9,7 +9,7 @@ executors:
     environment:
       AWS_PREFIX: build-<< pipeline.number >>-
     docker:
-      - image: cimg/node:22.20.0
+      - image: cimg/node:26.13.0
         auth:
           username: $DOCKER_USERNAME
           password: $DOCKER_PASSWORD
@@ -26,12 +26,16 @@ jobs:
       - run:
           name: Lint
           command: npm run lint
+      - run:
+          name: Run unit tests
+          command: npm run unit-test -- --maxWorkers=2
+      - run:
+          name: Run infra tests
+          command: npm run infra-test -- --maxWorkers=1
       - persist_to_workspace:
           root: ~/talis-cdk-constructs
           paths:
             - node_modules
-            - lib
-            - src
 
   deploy-lambda-worker:
     executor: default_executor
@@ -41,7 +45,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Build and deploy lambda worker example code
-          command: cd examples/simple-lambda-worker && npm install && npm run build && npx cdk --require-approval never deploy
+          command: cd examples/simple-lambda-worker && npx cdk --require-approval never deploy
 
   deploy-authenticated-api:
     executor: default_executor
@@ -51,7 +55,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Build and deploy authenticated api example code
-          command: cd examples/simple-authenticated-api && npm install && npm run build && npx cdk --require-approval never deploy
+          command: cd examples/simple-authenticated-api && npx cdk --require-approval never deploy
 
   deploy-authenticated-rest-api:
     executor: default_executor
@@ -61,7 +65,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Build and deploy authenticated rest api example code
-          command: cd examples/simple-authenticated-rest-api && npm install && npm run build && npx cdk --require-approval never deploy
+          command: cd examples/simple-authenticated-rest-api && npx cdk --require-approval never deploy
 
   deploy-cdn-site-hosting:
     executor: default_executor
@@ -71,7 +75,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Build and deploy cdn site hosting example code
-          command: cd examples/simple-cdn-site-hosting-construct && npm install && npm run build && npx cdk --require-approval never deploy
+          command: cd examples/simple-cdn-site-hosting-construct && npx cdk --require-approval never deploy
 
   test:
     executor: default_executor
@@ -80,14 +84,8 @@ jobs:
       - attach_workspace:
           at: ~/talis-cdk-constructs
       - run:
-          name: Run unit tests
-          command: npm run jest-unit-test -- --ci --maxWorkers=2
-      - run:
-          name: Run infra tests
-          command: npm run jest-infra-test -- --ci --maxWorkers=1
-      - run:
           name: Run integration tests
-          command: npm run jest-integration-test -- --ci --runInBand
+          command: npm run integration-test -- --no-file-parallelism
 
   destroy-lambda-worker:
     executor: default_executor
@@ -97,7 +95,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Destroy lambda worker example code
-          command: cd examples/simple-lambda-worker && npm install && npm run build && npx cdk --require-approval never destroy --force
+          command: cd examples/simple-lambda-worker && npx cdk --require-approval never destroy --force
 
   destroy-authenticated-api:
     executor: default_executor
@@ -107,7 +105,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Destroy authenticated api example code
-          command: cd examples/simple-authenticated-api && npm install && npm run build && npx cdk --require-approval never destroy --force
+          command: cd examples/simple-authenticated-api && npx cdk --require-approval never destroy --force
 
   destroy-authenticated-rest-api:
     executor: default_executor
@@ -117,7 +115,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Destroy authenticated rest api example code
-          command: cd examples/simple-authenticated-rest-api && npm install && npm run build && npx cdk --require-approval never destroy --force
+          command: cd examples/simple-authenticated-rest-api && npx cdk --require-approval never destroy --force
 
   destroy-cdn-site-hosting:
     executor: default_executor
@@ -127,7 +125,7 @@ jobs:
           at: ~/talis-cdk-constructs
       - run:
           name: Destroy cdn site hosting example code
-          command: cd examples/simple-cdn-site-hosting-construct && npm install && npm run build && npx cdk --require-approval never destroy --force
+          command: cd examples/simple-cdn-site-hosting-construct && npx cdk --require-approval never destroy --force
 
   semantic-release:
     executor: default_executor

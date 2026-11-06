@@ -1,5 +1,5 @@
 import * as cdk from "aws-cdk-lib";
-import * as path from "path";
+import * as path from "node:path";
 import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { aws_iam as iam } from "aws-cdk-lib";
 import { aws_sns as sns } from "aws-cdk-lib";
@@ -329,11 +329,8 @@ describe("LambdaWorker", () => {
             // NodejsFunction props
             entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
             handler: "testWorker",
-            projectRoot: path.resolve(
-              __dirname,
-              "../../../examples/simple-lambda-worker",
-            ),
-            depsLockFilePath: "examples/simple-lambda-worker/package-lock.json",
+            projectRoot: path.resolve(__dirname, "../../.."),
+            depsLockFilePath: "package-lock.json",
             runtime: lambda.Runtime.NODEJS_20_X,
             awsSdkConnectionReuse: false,
             bundling: {

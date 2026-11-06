@@ -8,7 +8,10 @@ class Route {
 
     return {
       statusCode: 200,
-      headers: {},
+      // Echo the authorizer principal so integration tests can check it
+      headers: {
+        "x-principal-id": this.event.requestContext.authorizer?.principalId,
+      },
       body: "route 2",
     };
   }

@@ -9,11 +9,13 @@ import { aws_logs as awslogs } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { aws_lambda_nodejs as lambdaNodeJs } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as path from "path";
+import * as path from "node:path";
 
 import { AuthenticatedApiProps } from "./authenticated-api-props";
+import { RouteLambdaProps } from "./route-lambda-props";
 import { RouteUrlProps } from "./route-url-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
+import { resolvePersonaOrigin } from "../util/persona-origin";
 
 const DEFAULT_API_LATENCY_THRESHOLD = cdk.Duration.minutes(1);
 const DEFAULT_LAMBDA_DURATION_THRESHOLD = cdk.Duration.minutes(1);
@@ -26,6 +28,8 @@ export class AuthenticatedApi extends Construct {
   private httpApi: apigatewayv2.HttpApi;
   private authorizer: apigatewayv2.IHttpRouteAuthorizer;
   private alarmAction: cloudwatch.IAlarmAction;
+  // Required scope per "<METHOD> <path>", the authorizer event's routeKey
+  private readonly scopeConfig: Record<string, string> = {};
 
   constructor(scope: Construct, id: string, props: AuthenticatedApiProps) {
     super(scope, id);
@@ -115,17 +119,6 @@ export class AuthenticatedApi extends Construct {
 
     this.alarmAction = new cloudwatchActions.SnsAction(props.alarmTopic);
 
-    // Routes may contain required scopes. These scopes need to be in the config
-    // of the authorization lambda. Create this config ahead of creating the authorization lambda
-    const scopeConfig: { [k: string]: string } = {};
-    if (props.lambdaRoutes) {
-      for (const routeProps of props.lambdaRoutes) {
-        if (routeProps.requiredScope) {
-          scopeConfig[routeProps.path] = routeProps.requiredScope;
-        }
-      }
-    }
-
     const authLambdaTimeout = cdk.Duration.minutes(2);
 
     const libPath = path.resolve(__dirname, "../../");
@@ -138,44 +131,23 @@ export class AuthenticatedApi extends Construct {
         functionName: `${apiName}-authoriser`,
 
         depsLockFilePath: path.resolve(libPath, "src/npm-shrinkwrap.json"),
-        entry: path.resolve(libPath, "src/lambda/api/authorizer.js"),
-        handler: "validateToken",
-
-        bundling: {
-          commandHooks: {
-            beforeBundling: () => {
-              return ["npm ci"];
-            },
-            beforeInstall: () => [],
-            afterBundling: () => [],
-          },
-          externalModules: [
-            "aws-sdk",
-
-            // hiredis is pulled in as a dependency from talis-node
-            // It has dependencies on gcc g++ and python to compile code during an npm install
-            // The redis cache is an optional parameter to the persona client in talis-node
-            // which we do not use in serverless projects. Remove this from the bundle created
-            // by esbuild to remove unnecessary issues with gcc/g++/python/node which have
-            // no impact as we do not use redis here.
-            "hiredis",
-          ],
-        },
+        entry: path.resolve(libPath, "src/lambda/authorizers.ts"),
+        handler: "httpApiHandler",
 
         environment: buildLambdaEnvironment({
           environment: {
             PERSONA_CLIENT_NAME: `${apiName}-authoriser`,
-            PERSONA_HOST: props.persona.host,
-            PERSONA_SCHEME: props.persona.scheme,
-            PERSONA_PORT: props.persona.port,
-            PERSONA_OAUTH_ROUTE: props.persona.oauth_route,
-            SCOPE_CONFIG: JSON.stringify(scopeConfig),
+            PERSONA_ORIGIN: resolvePersonaOrigin(props),
+            // Lazy: addUrlRoute can add scoped routes after construction
+            SCOPE_CONFIG: cdk.Lazy.string({
+              produce: () => JSON.stringify(this.scopeConfig),
+            }),
           },
           timeout: authLambdaTimeout,
         }),
 
         awsSdkConnectionReuse: true,
-        runtime: lambda.Runtime.NODEJS_22_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         timeout: authLambdaTimeout,
         securityGroups: props.securityGroups,
         vpc: props.vpc,
@@ -188,6 +160,8 @@ export class AuthenticatedApi extends Construct {
       authLambda,
       {
         authorizerName: `${apiName}-http-lambda-authoriser`,
+        // Decisions depend on the route's required scope, so cache per route
+        identitySource: ["$request.header.Authorization", "$context.routeKey"],
         responseTypes: [authorizers.HttpLambdaResponseType.SIMPLE], // Define if returns simple and/or iam response
       },
     );
@@ -205,20 +179,7 @@ export class AuthenticatedApi extends Construct {
           routeProps.lambda,
         );
 
-        if (routeProps.isPublic === true) {
-          this.httpApi.addRoutes({
-            path: routeProps.path,
-            methods: [routeProps.method],
-            integration,
-          });
-        } else {
-          this.httpApi.addRoutes({
-            path: routeProps.path,
-            methods: [routeProps.method],
-            integration,
-            authorizer: this.authorizer,
-          });
-        }
+        this.addRoute(routeProps, integration);
 
         // Add Cloudwatch alarms for this route
 
@@ -311,16 +272,27 @@ export class AuthenticatedApi extends Construct {
   }
 
   addUrlRoute(routeProps: RouteUrlProps) {
+    this.addRoute(
+      routeProps,
+      new integrations.HttpUrlIntegration(routeProps.name, routeProps.baseUrl, {
+        method: routeProps.method,
+      }),
+    );
+  }
+
+  private addRoute(
+    routeProps: RouteLambdaProps | RouteUrlProps,
+    integration: apigatewayv2.HttpRouteIntegration,
+  ) {
     this.httpApi.addRoutes({
       path: routeProps.path,
       methods: [routeProps.method],
-      integration: new integrations.HttpUrlIntegration(
-        routeProps.name,
-        routeProps.baseUrl,
-        {
-          method: routeProps.method,
-        },
-      ),
+      integration,
+      authorizer: routeProps.isPublic === true ? undefined : this.authorizer,
     });
+    if (routeProps.requiredScope) {
+      this.scopeConfig[`${routeProps.method} ${routeProps.path}`] =
+        routeProps.requiredScope;
+    }
   }
 }

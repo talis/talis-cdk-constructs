@@ -10,7 +10,7 @@ export interface ResourceProps {
         [param: string]: boolean;
       };
       isPublic?: boolean;
-      // requiredScope?: string; Not implemented yet
+      requiredScope?: string;
       lambdaDurationAlarmThreshold: cdk.Duration;
     };
   };

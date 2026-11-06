@@ -5,6 +5,6 @@ export interface RouteUrlProps {
   baseUrl: string;
   path: string;
   method: apigatewayv2.HttpMethod;
-  isPublic?: boolean; // Defaults to false
+  isPublic?: boolean; // Defaults to false: requests need a Persona token
   requiredScope?: string;
 }

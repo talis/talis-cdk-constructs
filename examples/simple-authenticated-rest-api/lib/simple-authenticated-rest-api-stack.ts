@@ -136,7 +136,6 @@ export class SimpleAuthenticatedRestApiStack extends cdk.Stack {
         host: "staging-users.talis.com",
         scheme: "https",
         port: "443",
-        oauth_route: "/oauth/tokens/",
       },
 
       resourceProps: [
@@ -153,6 +152,7 @@ export class SimpleAuthenticatedRestApiStack extends cdk.Stack {
               function: route2Handler,
               lambdaDurationAlarmThreshold: cdk.Duration.seconds(30),
               isPublic: false, // This is the default
+              requiredScope: "analytics:admin",
             },
           },
           nestedResources: [

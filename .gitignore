@@ -1,23 +1,13 @@
 node_modules
-
-# Built artifacts
-lib/**/*.js
-lib/**/*.d.ts
-test/**/*.js
-test/**/*.d.ts
-src/lambda/**/*.js
-src/lambda/**/*.d.ts
-!src/lambda/rest-api/authPolicy.js
+dist
+coverage
+*.tgz
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
 
-!test/infra/authenticated-api/routes/route1.js
-!test/infra/authenticated-api/routes/route2.js
-
 # user files
-
 .vscode
 .DS_Store
 .idea

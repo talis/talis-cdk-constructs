@@ -146,12 +146,7 @@ export class SimpleAuthenticatedApiStack extends cdk.Stack {
           `https://${prefix}simple-authenticated-api.talis.com`,
         ],
 
-        persona: {
-          host: "staging-users.talis.com",
-          scheme: "https",
-          port: "443",
-          oauth_route: "/oauth/tokens/",
-        },
+        personaOrigin: "https://staging-users.talis.com",
 
         lambdaRoutes: [
           {
@@ -181,6 +176,13 @@ export class SimpleAuthenticatedApiStack extends cdk.Stack {
             method: apigatewayv2.HttpMethod.GET,
             lambda: route4Handler,
             requiredScope: "analytics:admin",
+          },
+          {
+            // Authenticated, but no scope required
+            name: "route5",
+            path: "/1/route5",
+            method: apigatewayv2.HttpMethod.GET,
+            lambda: route2Handler,
           },
         ],
       },
@@ -214,6 +216,16 @@ export class SimpleAuthenticatedApiStack extends cdk.Stack {
       baseUrl: `${documentationBucket.bucketWebsiteUrl}/api-documentation/index.html`,
       path: "/api-documentation",
       method: apigatewayv2.HttpMethod.GET,
+      isPublic: true, // url routes need a token unless public
+    });
+
+    // Url routes can also require a scope
+    api.addUrlRoute({
+      name: "simple authenticated api admin docs",
+      baseUrl: `${documentationBucket.bucketWebsiteUrl}/api-documentation/index.html`,
+      path: "/1/admin-documentation",
+      method: apigatewayv2.HttpMethod.GET,
+      requiredScope: "analytics:admin",
     });
 
     console.log(`Regional domain name: ${api.domainName.regionalDomainName}`);

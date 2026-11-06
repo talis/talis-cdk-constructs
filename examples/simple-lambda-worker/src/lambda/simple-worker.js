@@ -1,6 +1,6 @@
-const AWS = require('aws-sdk');
+const { SQS } = require("@aws-sdk/client-sqs");
 
-const sqs = new AWS.SQS();
+const sqs = new SQS();
 const successSqsUrl = process.env.SUCCESS_QUEUE_URL;
 
 class SimpleLambdaWorker {
@@ -9,7 +9,9 @@ class SimpleLambdaWorker {
   }
 
   async handle() {
-    console.log(`Simple Worker processing event: ${JSON.stringify(this.event)}`);
+    console.log(
+      `Simple Worker processing event: ${JSON.stringify(this.event)}`,
+    );
 
     const message = this.event.Records[0];
     const { result } = JSON.parse(message.body);
@@ -20,10 +22,10 @@ class SimpleLambdaWorker {
     } else {
       const params = {
         QueueUrl: successSqsUrl,
-        MessageBody: 'Success',
+        MessageBody: "Success",
       };
       console.log(`SQS parameters: ${JSON.stringify(params)}`);
-      const response = await sqs.sendMessage(params).promise();
+      const response = await sqs.sendMessage(params);
       console.log(`Response from sending message: ${JSON.stringify(response)}`);
     }
   }
