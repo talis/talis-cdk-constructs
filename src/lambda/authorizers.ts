@@ -113,9 +113,12 @@ async function authorize(
 
 /** Scope SCOPE_CONFIG requires for `routeKey`, if any. */
 export function requiredScope(routeKey: string): string | undefined {
-  return Object.hasOwn(scopeConfig, routeKey)
-    ? scopeConfig[routeKey]
-    : undefined;
+  // REST API events carry the request's verb, not "ANY", for ANY methods
+  const anyMethodKey = routeKey.replace(/^\S+/, "ANY");
+  const key = [routeKey, anyMethodKey].find((k) =>
+    Object.hasOwn(scopeConfig, k),
+  );
+  return key === undefined ? undefined : scopeConfig[key];
 }
 
 // HTTP API lowercases header names; REST API keeps them as sent

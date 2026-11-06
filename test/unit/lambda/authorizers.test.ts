@@ -1,6 +1,9 @@
 // The authorizers read SCOPE_CONFIG once, when the module loads
 vi.hoisted(() => {
-  process.env.SCOPE_CONFIG = JSON.stringify({ "GET /items/{id}": "read" });
+  process.env.SCOPE_CONFIG = JSON.stringify({
+    "GET /items/{id}": "read",
+    "ANY /admin": "admin",
+  });
 });
 
 import type {
@@ -62,6 +65,12 @@ describe("requiredScope", () => {
     expect(requiredScope("POST /items/{id}")).toBeUndefined();
     expect(requiredScope("GET /items")).toBeUndefined();
     expect(requiredScope("constructor")).toBeUndefined();
+  });
+
+  test("falls back to an ANY method on the same route", () => {
+    expect(requiredScope("POST /admin")).toBe("admin");
+    expect(requiredScope("ANY /admin")).toBe("admin");
+    expect(requiredScope("POST /admin/x")).toBeUndefined();
   });
 
   test("returns undefined without SCOPE_CONFIG", async () => {
