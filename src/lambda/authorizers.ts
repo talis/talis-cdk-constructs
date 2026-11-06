@@ -13,7 +13,7 @@ import {
 
 // Module scope so the cached Persona public key survives warm invocations
 const persona = new PersonaClient(
-  `${process.env.PERSONA_SCHEME}://${process.env.PERSONA_HOST}:${process.env.PERSONA_PORT}`,
+  process.env.PERSONA_ORIGIN ?? "",
   `${process.env.PERSONA_CLIENT_NAME} (lambda)`,
 );
 

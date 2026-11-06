@@ -3,6 +3,8 @@ import { aws_logs as awslogs } from "aws-cdk-lib";
 import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { aws_sns as sns } from "aws-cdk-lib";
 
+import { PersonaProps } from "../util/persona-origin";
+
 import { ResourceProps } from "./resource-props";
 
 export interface AuthenticatedRestApiProps {
@@ -28,14 +30,17 @@ export interface AuthenticatedRestApiProps {
     retention?: awslogs.RetentionDays;
   };
 
-  // Persona props are all strings - even the port.
-  // These are set as environment variables on the Auth Lambda.
-  persona: {
-    host: string;
-    scheme: string;
-    port: string;
-    oauth_route: string;
-  };
+  /**
+   * Persona the authorizer validates tokens with, as host, scheme and port.
+   * Set this or `personaOrigin`, not both.
+   */
+  persona?: PersonaProps;
+
+  /**
+   * Persona origin the authorizer validates tokens with,
+   * e.g. "https://users.talis.com". Set this or `persona`, not both.
+   */
+  personaOrigin?: string;
 
   // SNS Topic all alarm actions should be sent to
   alarmTopic: sns.ITopic;

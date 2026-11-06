@@ -1,6 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import { aws_lambda as lambda, aws_sns as sns } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import * as path from "node:path";
 
 import {
@@ -67,6 +67,18 @@ describe("AuthenticatedRestApi", () => {
       Type: "REQUEST",
       IdentitySource: "method.request.header.Authorization",
       AuthorizerResultTtlInSeconds: 0,
+    });
+  });
+
+  test("passes the Persona origin, built from the persona props, to the authorizer", () => {
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "index.restApiHandler",
+      Environment: {
+        Variables: {
+          PERSONA_ORIGIN: "https://staging-users.talis.com:443",
+          PERSONA_OAUTH_ROUTE: Match.absent(),
+        },
+      },
     });
   });
 

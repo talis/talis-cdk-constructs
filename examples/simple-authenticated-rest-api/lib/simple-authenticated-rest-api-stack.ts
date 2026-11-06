@@ -136,7 +136,6 @@ export class SimpleAuthenticatedRestApiStack extends cdk.Stack {
         host: "staging-users.talis.com",
         scheme: "https",
         port: "443",
-        oauth_route: "/oauth/tokens/",
       },
 
       resourceProps: [
