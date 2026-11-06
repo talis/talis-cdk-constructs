@@ -175,7 +175,7 @@ export class AuthenticatedApi extends Construct {
         }),
 
         awsSdkConnectionReuse: true,
-        runtime: lambda.Runtime.NODEJS_22_X,
+        runtime: lambda.Runtime.NODEJS_24_X,
         timeout: authLambdaTimeout,
         securityGroups: props.securityGroups,
         vpc: props.vpc,

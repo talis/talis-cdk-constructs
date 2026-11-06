@@ -149,7 +149,7 @@ describe("AuthenticatedApi", () => {
         FunctionName: "test-MyTestAuthenticatedApi-authoriser",
         Timeout: 120,
         Handler: "index.validateToken",
-        Runtime: "nodejs22.x",
+        Runtime: "nodejs24.x",
         Environment: {
           Variables: {
             PERSONA_CLIENT_NAME: "test-MyTestAuthenticatedApi-authoriser",

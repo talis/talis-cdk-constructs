@@ -66,7 +66,7 @@ export class PersonaAuthorizer {
 
     if (!this.event?.headers || this.event.headers["authorization"] == null) {
       console.log("Missing auth token");
-      return this.context.fail("Unauthorized");
+      throw new Error("Unauthorized");
     }
 
     const parsedMethodArn = this.parseMethodArn(this.event.routeArn);
@@ -94,7 +94,7 @@ export class PersonaAuthorizer {
 
     if (!validationOpts.token || validationOpts.token.length === 0) {
       console.log("token missing");
-      return this.context.fail("Unauthorized");
+      throw new Error("Unauthorized");
     }
 
     try {
@@ -105,7 +105,7 @@ export class PersonaAuthorizer {
           clientId: token["sub"],
         },
       };
-      return this.context.succeed(success);
+      return success;
     } catch (err) {
       console.log("token validation failed", err);
 
@@ -119,7 +119,7 @@ export class PersonaAuthorizer {
             clientId: error?.token ? error.token["sub"] : "",
           },
         };
-        return this.context.succeed(insufficientScope);
+        return insufficientScope;
       }
 
       const failure = {
@@ -128,7 +128,7 @@ export class PersonaAuthorizer {
           clientId: error?.token ? error.token["sub"] : "",
         },
       };
-      return this.context.succeed(failure);
+      return failure;
     }
   }
 

@@ -48,7 +48,7 @@
     "vitest": "5.1.0"
   },
   "peerDependencies": {
-    "aws-cdk-lib": "^2.200.1",
+    "aws-cdk-lib": "^2.224.0",
     "constructs": "^10.0.0"
   },
   "engines": {

@@ -15,7 +15,7 @@
  * var testPolicy = new AuthPolicy('[principal user identifier]', '[AWS account id]', apiOptions);
  * testPolicy.allowMethod(AuthPolicy.HttpVerb.GET, '/users/username');
  * testPolicy.denyMethod(AuthPolicy.HttpVerb.POST, '/pets');
- * context.succeed(testPolicy.build());
+ * return testPolicy.build();
  *
  * @class AuthPolicy
  * @constructor
