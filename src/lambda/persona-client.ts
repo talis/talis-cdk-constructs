@@ -62,7 +62,9 @@ export class PersonaClient {
       await this.validateScopesRemotely(token, scopes, payload, requestId);
       return payload;
     }
-    if (!hasAnyScope(payload.scopes ?? [], scopes)) {
+    // A non-array claim must not reach hasAnyScope: "subscriber".includes("su") is true
+    const granted = Array.isArray(payload.scopes) ? payload.scopes : [];
+    if (!hasAnyScope(granted, scopes)) {
       throw new PersonaError("insufficient_scope", payload);
     }
     return payload;

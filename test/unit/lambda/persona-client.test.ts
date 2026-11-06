@@ -131,6 +131,13 @@ describe("PersonaClient.validateToken", () => {
     });
   });
 
+  test("rejects a token whose scopes claim is not an array", async () => {
+    vi.stubGlobal("fetch", personaFetch());
+    await expect(
+      client().validateToken(signJwt({ scopes: "subscriber" }), ["admin"]),
+    ).rejects.toMatchObject({ type: "insufficient_scope" });
+  });
+
   test("reports a communication issue when the key cannot be fetched", async () => {
     vi.stubGlobal("fetch", async () => new Response(null, { status: 500 }));
     await expect(
