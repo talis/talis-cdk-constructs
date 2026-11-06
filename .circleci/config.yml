@@ -26,6 +26,12 @@ jobs:
       - run:
           name: Lint
           command: npm run lint
+      - run:
+          name: Run unit tests
+          command: npm run unit-test -- --maxWorkers=2
+      - run:
+          name: Run infra tests
+          command: npm run infra-test -- --maxWorkers=1
       - persist_to_workspace:
           root: ~/talis-cdk-constructs
           paths:
@@ -77,12 +83,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/talis-cdk-constructs
-      - run:
-          name: Run unit tests
-          command: npm run unit-test -- --maxWorkers=2
-      - run:
-          name: Run infra tests
-          command: npm run infra-test -- --maxWorkers=1
       - run:
           name: Run integration tests
           command: npm run integration-test -- --no-file-parallelism
