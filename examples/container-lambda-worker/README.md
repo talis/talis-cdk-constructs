@@ -14,7 +14,7 @@ The LambdaWorker:
 
 The Container LambdaWorker:
 
-- is run from an existing container image tag within an ecr repository
+- is run from a container image built from the `container` directory
 
 Optionionally, the LambdaWorker:
 
@@ -26,10 +26,8 @@ Optionionally, the LambdaWorker:
 
 The ContainerLambdaWorkerStack:
 
-- creates an ecr repository
-- builds the docker image from the `container` directory
-- publishes the docker image as `example-UUID` to the created repository
-- creates the LambdaWorker from the given image and repository
+- builds the docker image from the `container` directory as a CDK image asset (Docker is required to deploy)
+- creates the LambdaWorker from that image
 
 ## Construct Diagram
 
