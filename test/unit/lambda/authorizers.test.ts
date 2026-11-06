@@ -133,9 +133,12 @@ describe("httpApiHandler", () => {
   });
 
   test.each([undefined, "", "Bearer ", "Bearer"])(
-    "throws Unauthorized for authorization header %j",
+    "denies, without throwing, authorization header %j",
     async (header) => {
-      await expect(invoke(header)).rejects.toThrow("Unauthorized");
+      await expect(invoke(header)).resolves.toEqual({
+        isAuthorized: false,
+        context: { clientId: "" },
+      });
     },
   );
 });
