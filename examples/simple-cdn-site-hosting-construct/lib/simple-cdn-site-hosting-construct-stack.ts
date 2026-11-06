@@ -2,7 +2,7 @@ import * as cdk from "aws-cdk-lib";
 import { aws_cloudfront as cloudfront } from "aws-cdk-lib";
 import { aws_s3_deployment as s3deploy } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as path from "path";
+import * as path from "node:path";
 
 import {
   CdnSiteHostingConstruct,

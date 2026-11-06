@@ -9,7 +9,7 @@ import { aws_logs as awslogs } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { aws_lambda_nodejs as lambdaNodeJs } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as path from "path";
+import * as path from "node:path";
 
 import { AuthenticatedApiProps } from "./authenticated-api-props";
 import { RouteUrlProps } from "./route-url-props";

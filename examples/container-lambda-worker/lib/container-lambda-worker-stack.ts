@@ -2,7 +2,7 @@ import * as cdk from "aws-cdk-lib";
 import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { aws_sns as sns } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as path from "path";
+import * as path from "node:path";
 
 import { LambdaWorker } from "../../../lib";
 

@@ -4,7 +4,7 @@ import * as apigatewayv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { aws_sns as sns } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { Template, Match } from "aws-cdk-lib/assertions";
-import * as path from "path";
+import * as path from "node:path";
 
 import { AuthenticatedApi, AuthenticatedApiFunction } from "../../../lib";
 
