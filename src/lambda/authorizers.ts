@@ -1,3 +1,9 @@
+import type {
+  APIGatewayAuthorizerResult,
+  APIGatewayRequestAuthorizerEventV2,
+  APIGatewaySimpleAuthorizerWithContextResult,
+  APIGatewayTokenAuthorizerEvent,
+} from "aws-lambda";
 import {
   PersonaClient,
   PersonaError,
@@ -10,18 +16,18 @@ const persona = new PersonaClient(
   `${process.env.PERSONA_CLIENT_NAME} (lambda)`,
 );
 
-interface HttpApiAuthorizerEvent {
-  headers?: Record<string, string | undefined>;
-  routeArn: string;
-}
-
-interface TokenAuthorizerEvent {
-  authorizationToken?: string;
-  methodArn: string;
+/** Passed to route handlers as `requestContext.authorizer.lambda`. */
+export interface HttpApiAuthorizerContext {
+  clientId: string;
+  description?: string;
 }
 
 /** HTTP API (API Gateway v2) Lambda authorizer with simple responses. */
-export async function httpApiHandler(event: HttpApiAuthorizerEvent) {
+export async function httpApiHandler(
+  event: APIGatewayRequestAuthorizerEventV2,
+): Promise<
+  APIGatewaySimpleAuthorizerWithContextResult<HttpApiAuthorizerContext>
+> {
   const result = await authorize(event.headers?.authorization, event.routeArn);
   const clientId = result.token?.sub ?? "";
   if (result.authorized) {
@@ -36,7 +42,9 @@ export async function httpApiHandler(event: HttpApiAuthorizerEvent) {
 }
 
 /** REST API (API Gateway v1) TOKEN authorizer returning an IAM policy. */
-export async function restApiHandler(event: TokenAuthorizerEvent) {
+export async function restApiHandler(
+  event: APIGatewayTokenAuthorizerEvent,
+): Promise<APIGatewayAuthorizerResult> {
   const result = await authorize(event.authorizationToken, event.methodArn);
   return {
     principalId: result.authorized ? (result.token.aud ?? "invalid_oauth") : "",

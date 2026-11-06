@@ -30,6 +30,7 @@
     "@aws-sdk/client-sqs": "3.1163.0",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
+    "@types/aws-lambda": "8.10.164",
     "@types/node": "22.20.5",
     "aws-cdk": "2.1148.0",
     "aws-cdk-lib": "2.275.0",

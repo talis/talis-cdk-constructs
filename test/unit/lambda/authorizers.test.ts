@@ -1,3 +1,4 @@
+import type { APIGatewayRequestAuthorizerEventV2 } from "aws-lambda";
 import {
   httpApiHandler,
   pathMatches,
@@ -9,6 +10,16 @@ import { nowSeconds, personaFetch, signJwt } from "./jwt";
 
 const ARN =
   "arn:aws:execute-api:eu-west-1:123456789012:api-id/stage/GET/1/route1";
+
+// Only the fields the authorizer reads; API Gateway sends many more
+function httpApiEvent(authorization?: string) {
+  const event: Partial<APIGatewayRequestAuthorizerEventV2> = {
+    type: "REQUEST",
+    routeArn: ARN,
+    headers: { authorization },
+  };
+  return event as APIGatewayRequestAuthorizerEventV2;
+}
 
 beforeEach(() => {
   vi.stubGlobal("fetch", personaFetch());
@@ -69,7 +80,7 @@ describe("requiredScope", () => {
 
 describe("httpApiHandler", () => {
   const invoke = (authorization?: string) =>
-    httpApiHandler({ headers: { authorization }, routeArn: ARN });
+    httpApiHandler(httpApiEvent(authorization));
 
   test("authorizes a valid token with the required scope", async () => {
     const token = signJwt({ sub: "client", scopes: ["read"] });
@@ -103,10 +114,7 @@ describe("httpApiHandler", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
-      httpApiHandler({
-        headers: { authorization: `Bearer ${signJwt({ sub: "client" })}` },
-        routeArn: ARN,
-      }),
+      httpApiHandler(httpApiEvent(`Bearer ${signJwt({ sub: "client" })}`)),
     ).resolves.toEqual({ isAuthorized: false, context: { clientId: "" } });
   });
 
@@ -119,8 +127,8 @@ describe("httpApiHandler", () => {
 });
 
 describe("restApiHandler", () => {
-  const invoke = (authorizationToken?: string) =>
-    restApiHandler({ authorizationToken, methodArn: ARN });
+  const invoke = (authorizationToken: string) =>
+    restApiHandler({ type: "TOKEN", authorizationToken, methodArn: ARN });
   const policy = (effect: string) => ({
     Version: "2012-10-17",
     Statement: [
@@ -144,7 +152,7 @@ describe("restApiHandler", () => {
     });
   });
 
-  test("throws Unauthorized without a token", async () => {
-    await expect(invoke(undefined)).rejects.toThrow("Unauthorized");
+  test("throws Unauthorized for an empty token", async () => {
+    await expect(invoke("")).rejects.toThrow("Unauthorized");
   });
 });
