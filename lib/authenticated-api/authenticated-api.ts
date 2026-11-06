@@ -12,6 +12,7 @@ import { Construct } from "constructs";
 import * as path from "node:path";
 
 import { AuthenticatedApiProps } from "./authenticated-api-props";
+import { RouteLambdaProps } from "./route-lambda-props";
 import { RouteUrlProps } from "./route-url-props";
 import { buildLambdaEnvironment } from "../util/build-lambda-environment";
 
@@ -26,6 +27,8 @@ export class AuthenticatedApi extends Construct {
   private httpApi: apigatewayv2.HttpApi;
   private authorizer: apigatewayv2.IHttpRouteAuthorizer;
   private alarmAction: cloudwatch.IAlarmAction;
+  // Required scope per "<METHOD> <path>", the authorizer event's routeKey
+  private readonly scopeConfig: Record<string, string> = {};
 
   constructor(scope: Construct, id: string, props: AuthenticatedApiProps) {
     super(scope, id);
@@ -115,19 +118,6 @@ export class AuthenticatedApi extends Construct {
 
     this.alarmAction = new cloudwatchActions.SnsAction(props.alarmTopic);
 
-    // Routes may contain required scopes. These scopes need to be in the config
-    // of the authorization lambda. Create this config ahead of creating the authorization lambda
-    const scopeConfig: { [k: string]: string } = {};
-    if (props.lambdaRoutes) {
-      for (const routeProps of props.lambdaRoutes) {
-        if (routeProps.requiredScope) {
-          // Keyed like the authorizer event's routeKey, e.g. "GET /1/items/{id}"
-          scopeConfig[`${routeProps.method} ${routeProps.path}`] =
-            routeProps.requiredScope;
-        }
-      }
-    }
-
     const authLambdaTimeout = cdk.Duration.minutes(2);
 
     const libPath = path.resolve(__dirname, "../../");
@@ -150,7 +140,10 @@ export class AuthenticatedApi extends Construct {
             PERSONA_SCHEME: props.persona.scheme,
             PERSONA_PORT: props.persona.port,
             PERSONA_OAUTH_ROUTE: props.persona.oauth_route,
-            SCOPE_CONFIG: JSON.stringify(scopeConfig),
+            // Lazy: addUrlRoute can add scoped routes after construction
+            SCOPE_CONFIG: cdk.Lazy.string({
+              produce: () => JSON.stringify(this.scopeConfig),
+            }),
           },
           timeout: authLambdaTimeout,
         }),
@@ -188,20 +181,7 @@ export class AuthenticatedApi extends Construct {
           routeProps.lambda,
         );
 
-        if (routeProps.isPublic === true) {
-          this.httpApi.addRoutes({
-            path: routeProps.path,
-            methods: [routeProps.method],
-            integration,
-          });
-        } else {
-          this.httpApi.addRoutes({
-            path: routeProps.path,
-            methods: [routeProps.method],
-            integration,
-            authorizer: this.authorizer,
-          });
-        }
+        this.addRoute(routeProps, integration);
 
         // Add Cloudwatch alarms for this route
 
@@ -294,16 +274,27 @@ export class AuthenticatedApi extends Construct {
   }
 
   addUrlRoute(routeProps: RouteUrlProps) {
+    this.addRoute(
+      routeProps,
+      new integrations.HttpUrlIntegration(routeProps.name, routeProps.baseUrl, {
+        method: routeProps.method,
+      }),
+    );
+  }
+
+  private addRoute(
+    routeProps: RouteLambdaProps | RouteUrlProps,
+    integration: apigatewayv2.HttpRouteIntegration,
+  ) {
     this.httpApi.addRoutes({
       path: routeProps.path,
       methods: [routeProps.method],
-      integration: new integrations.HttpUrlIntegration(
-        routeProps.name,
-        routeProps.baseUrl,
-        {
-          method: routeProps.method,
-        },
-      ),
+      integration,
+      authorizer: routeProps.isPublic === true ? undefined : this.authorizer,
     });
+    if (routeProps.requiredScope) {
+      this.scopeConfig[`${routeProps.method} ${routeProps.path}`] =
+        routeProps.requiredScope;
+    }
   }
 }
