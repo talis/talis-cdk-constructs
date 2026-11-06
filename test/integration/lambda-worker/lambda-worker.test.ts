@@ -1,4 +1,4 @@
-import { SQS } from "aws-sdk";
+import { SQS } from "@aws-sdk/client-sqs";
 import { randomUUID } from "node:crypto";
 
 const sqs = new SQS();
@@ -21,9 +21,7 @@ describe("LambdaWorker", () => {
   async function findQueueUrl(queuePostfix: string): Promise<string> {
     const queueName = `${process.env.AWS_PREFIX}${queuePostfix}`;
     // Filter by name: an unfiltered listQueues returns at most 1000 queues
-    const response = await sqs
-      .listQueues({ QueueNamePrefix: queueName })
-      .promise();
+    const response = await sqs.listQueues({ QueueNamePrefix: queueName });
 
     const queueUrl = response.QueueUrls?.find((url) =>
       url.endsWith(`/${queueName}`),
@@ -41,21 +39,19 @@ describe("LambdaWorker", () => {
       MessageGroupId: "1",
       MessageBody: JSON.stringify(message),
     };
-    await sqs.sendMessage(params).promise();
+    await sqs.sendMessage(params);
   }
 
   async function queueSize(queueUrl: string): Promise<number> {
-    const response = await sqs
-      .getQueueAttributes({
-        QueueUrl: queueUrl,
-        AttributeNames: ["ApproximateNumberOfMessages"],
-      })
-      .promise();
-    if (response && response.Attributes) {
-      return +response.Attributes["ApproximateNumberOfMessages"];
-    } else {
+    const response = await sqs.getQueueAttributes({
+      QueueUrl: queueUrl,
+      AttributeNames: ["ApproximateNumberOfMessages"],
+    });
+    const size = response.Attributes?.ApproximateNumberOfMessages;
+    if (size === undefined) {
       throw Error("Unable to determine size of queue");
     }
+    return +size;
   }
 
   async function waitForQueueSizeToBe(queueUrl: string, expectedSize: number) {
@@ -92,9 +88,9 @@ describe("LambdaWorker", () => {
 
   beforeEach(async () => {
     console.log("Purging queues...");
-    await sqs.purgeQueue({ QueueUrl: workerSqsUrl }).promise();
-    await sqs.purgeQueue({ QueueUrl: dlqSqsUrl }).promise();
-    await sqs.purgeQueue({ QueueUrl: successSqsUrl }).promise();
+    await sqs.purgeQueue({ QueueUrl: workerSqsUrl });
+    await sqs.purgeQueue({ QueueUrl: dlqSqsUrl });
+    await sqs.purgeQueue({ QueueUrl: successSqsUrl });
 
     console.log("Waiting for purge to take affect....");
     // You are only allowed one purge every 60 seconds - reducing this will cause failures.

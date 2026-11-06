@@ -1,6 +1,6 @@
-const AWS = require("aws-sdk");
+const { SQS } = require("@aws-sdk/client-sqs");
 
-const sqs = new AWS.SQS();
+const sqs = new SQS();
 const successSqsUrl = process.env.SUCCESS_QUEUE_URL;
 
 class SimpleLambdaWorker {
@@ -25,7 +25,7 @@ class SimpleLambdaWorker {
         MessageBody: "Success",
       };
       console.log(`SQS parameters: ${JSON.stringify(params)}`);
-      const response = await sqs.sendMessage(params).promise();
+      const response = await sqs.sendMessage(params);
       console.log(`Response from sending message: ${JSON.stringify(response)}`);
     }
   }
