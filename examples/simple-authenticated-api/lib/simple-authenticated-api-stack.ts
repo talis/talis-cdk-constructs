@@ -221,6 +221,16 @@ export class SimpleAuthenticatedApiStack extends cdk.Stack {
       baseUrl: `${documentationBucket.bucketWebsiteUrl}/api-documentation/index.html`,
       path: "/api-documentation",
       method: apigatewayv2.HttpMethod.GET,
+      isPublic: true, // url routes need a token unless public
+    });
+
+    // Url routes can also require a scope
+    api.addUrlRoute({
+      name: "simple authenticated api admin docs",
+      baseUrl: `${documentationBucket.bucketWebsiteUrl}/api-documentation/index.html`,
+      path: "/1/admin-documentation",
+      method: apigatewayv2.HttpMethod.GET,
+      requiredScope: "analytics:admin",
     });
 
     console.log(`Regional domain name: ${api.domainName.regionalDomainName}`);

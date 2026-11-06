@@ -121,4 +121,14 @@ describe("AuthenticatedApi", () => {
     expect(response.status).toBe(200);
     expect(response.data).toBe("Simple Authenticated Api Documentation");
   });
+
+  test("authorizes url routes and enforces their required scope", async () => {
+    const path = "1/admin-documentation";
+    expect((await get(path)).status).toBe(401);
+    expect((await get(path, missingScopeToken)).status).toBe(403);
+
+    const response = await get(path, validToken);
+    expect(response.status).toBe(200);
+    expect(response.data).toBe("Simple Authenticated Api Documentation");
+  });
 });
