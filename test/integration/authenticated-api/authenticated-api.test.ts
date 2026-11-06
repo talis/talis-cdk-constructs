@@ -78,8 +78,9 @@ describe("AuthenticatedApi", () => {
     expect((await get("1/route1")).status).toBe(401);
   });
 
-  test("returns 401 for an empty bearer token", async () => {
-    expect((await get("1/route1", "")).status).toBe(401);
+  test("returns 403 for an empty bearer token", async () => {
+    // "Bearer " passes API Gateway's identity check, so the authorizer denies it
+    expect((await get("1/route1", "")).status).toBe(403);
   });
 
   test.each([

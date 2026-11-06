@@ -55,6 +55,10 @@ export async function restApiHandler(
     event.headers,
     `${event.httpMethod} ${event.resource}`,
   );
+  if (!result.authorized && result.missingToken) {
+    // API Gateway responds 401 to this exact error message
+    throw new Error("Unauthorized");
+  }
   return {
     principalId: result.authorized ? (result.token.aud ?? "invalid_oauth") : "",
     policyDocument: {
@@ -72,7 +76,12 @@ export async function restApiHandler(
 
 type AuthorizeResult =
   | { authorized: true; token: TokenPayload }
-  | { authorized: false; insufficientScope: boolean; token?: TokenPayload };
+  | {
+      authorized: false;
+      insufficientScope: boolean;
+      token?: TokenPayload;
+      missingToken?: true;
+    };
 
 /**
  * @param routeKey `<METHOD> <route/resource template>`, e.g. `GET /items/{id}`
@@ -85,8 +94,8 @@ async function authorize(
     ?.replace(/^bearer\b/i, "")
     .trim();
   if (!token) {
-    // API Gateway responds 401 to this exact error message
-    throw new Error("Unauthorized");
+    // Deny rather than throw, so HTTP API answers 403 instead of an authorizer error
+    return { authorized: false, insufficientScope: false, missingToken: true };
   }
 
   const scope = requiredScope(routeKey);
