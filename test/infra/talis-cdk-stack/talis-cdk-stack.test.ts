@@ -63,6 +63,10 @@ describe("Talis CDK Stack", () => {
       Template.fromStack(stack).hasResourceProperties("AWS::SNS::Topic", {
         Tags: [
           {
+            Key: "talis:product",
+            Value: "depot",
+          },
+          {
             Key: "tfs-app",
             Value: "depot",
           },
@@ -102,6 +106,10 @@ describe("Talis CDK Stack", () => {
 
       Template.fromStack(stack).hasResourceProperties("AWS::SNS::Topic", {
         Tags: [
+          {
+            Key: "talis:product",
+            Value: "test-depot",
+          },
           {
             Key: "tfs-app",
             Value: "test-depot",
