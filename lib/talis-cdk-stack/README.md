@@ -32,7 +32,7 @@ stack.getRemovalPolicyForTalisDeploymentEnvironment(
 
 It also adds the following tags to all taggable resources created within the construct:
 
-- talis:product (the product for `app`, from `getTalisProductForApp`; see `talis-product.ts`)
+- talis:product (from `product`, defaulting to `app`)
 - tfs-app
 - tfs-environment
 - tfs-release
