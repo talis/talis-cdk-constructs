@@ -206,6 +206,12 @@ export class LambdaWorker extends Construct {
     const alarmActions = props.alarmTopic
       ? [new cloudwatchActions.SnsAction(props.alarmTopic)]
       : [];
+    if (!props.alarmTopic && props.onCallTeam === undefined) {
+      cdk.Annotations.of(this).addWarningV2(
+        "talis-cdk-constructs:alarmsWithoutActions",
+        "Neither alarmTopic nor onCallTeam is set, so this construct's alarms won't notify or page anyone.",
+      );
+    }
 
     // Add an alarm on any messages appearing on the DLQ
     const approximateNumberOfMessagesVisibleMetric = lambdaDLQ

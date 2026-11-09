@@ -31,6 +31,8 @@ describe("AuthenticatedRestApi", () => {
       description: "Test REST API",
       stageName: "development",
       alarmTopic: new sns.Topic(stack, "Alarms"),
+      onCallTeam: "talis-platform",
+      runbookUrl: "https://example.com/runbooks/api",
       domainName: "test-rest-api.talis.com",
       certificateArn:
         "arn:aws:acm:eu-west-1:302477901552:certificate/564e2081-81f3-4250-a2a9-d2b88916483a",
@@ -94,6 +96,21 @@ describe("AuthenticatedRestApi", () => {
       ],
     });
     template = Template.fromStack(stack);
+  });
+
+  test("tags the method alarms for paging, with the method's Lambda", () => {
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmName: Match.stringLikeRegexp("items-POST-duration-alarm$"),
+      Tags: [
+        {
+          Key: "lambda_function",
+          Value: { Ref: Match.stringLikeRegexp("^handler") },
+        },
+        { Key: "oncall_team", Value: "talis-platform" },
+        { Key: "runbook_url", Value: "https://example.com/runbooks/api" },
+      ],
+      ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
+    });
   });
 
   test("uses an uncached REQUEST authorizer on the Authorization header", () => {

@@ -31,15 +31,39 @@ describe("TalisAlarm", () => {
     });
   });
 
-  test("adds no tags when none of the tag props are set", () => {
+  test("adds no tags and doesn't propagate them when none of the tag props are set", () => {
     synth({
       onCallTeam: undefined,
       runbookUrl: undefined,
       lambdaFunctionName: undefined,
     }).hasResourceProperties("AWS::CloudWatch::Alarm", {
       Tags: Match.absent(),
-      ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
+      ActionConfiguration: Match.absent(),
     });
+  });
+
+  test("doesn't propagate tags without an on-call team", () => {
+    synth({
+      runbookUrl: "https://example.com/runbooks/test",
+    }).hasResourceProperties("AWS::CloudWatch::Alarm", {
+      Tags: [
+        { Key: "runbook_url", Value: "https://example.com/runbooks/test" },
+      ],
+      ActionConfiguration: Match.absent(),
+    });
+  });
+
+  test("passes synth-time validation of the template", () => {
+    const app = new cdk.App({
+      context: { "@aws-cdk/core:validateAgainstDefaultRules": true },
+    });
+    new TalisAlarm(new cdk.Stack(app, "TestStack"), "Alarm", {
+      metric: new cloudwatch.Metric({ namespace: "Test", metricName: "Test" }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      onCallTeam: "talis-platform",
+    });
+    expect(() => app.synth()).not.toThrow();
   });
 
   test("rejects a runbook URL that is not a valid tag value", () => {

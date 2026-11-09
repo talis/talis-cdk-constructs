@@ -81,6 +81,12 @@ export class AuthenticatedRestApi extends Construct {
       onCallTeam: props.onCallTeam,
       runbookUrl: props.runbookUrl,
     };
+    if (!props.alarmTopic && props.onCallTeam === undefined) {
+      cdk.Annotations.of(this).addWarningV2(
+        "talis-cdk-constructs:alarmsWithoutActions",
+        "Neither alarmTopic nor onCallTeam is set, so this construct's alarms won't notify or page anyone.",
+      );
+    }
 
     // Methods may require scopes; the authorizer looks them up by the
     // request's "<METHOD> <resource>", e.g. "PUT /items/{itemId}"
@@ -151,7 +157,7 @@ export class AuthenticatedRestApi extends Construct {
     const routeLatencyAlarm = new TalisAlarm(this, `${apiName}-latency-alarm`, {
       ...this.paging,
       alarmName: `${apiName}-latency-alarm`,
-      alarmDescription: `The average latency of API ${apiName} was ${latencyThreshold.toHumanString()} or more over 1 minute.`,
+      alarmDescription: `The latency of API ${apiName} averaged ${latencyThreshold.toHumanString()} or more over the last minute.`,
       actionsEnabled: true,
       metric: metricLatency,
       evaluationPeriods: 1,

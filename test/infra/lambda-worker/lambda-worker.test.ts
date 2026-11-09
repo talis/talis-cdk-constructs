@@ -4,7 +4,7 @@ import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { aws_iam as iam } from "aws-cdk-lib";
 import { aws_sns as sns } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
-import { Match, Template } from "aws-cdk-lib/assertions";
+import { Annotations, Match, Template } from "aws-cdk-lib/assertions";
 
 import { LambdaWorker, LambdaWorkerProps } from "../../../lib/lambda-worker";
 
@@ -253,8 +253,8 @@ describe("LambdaWorker", () => {
         const template = Template.fromStack(stack);
         template.resourceCountIs("AWS::CloudWatch::Alarm", 3);
         template.allResourcesProperties("AWS::CloudWatch::Alarm", {
-          AlarmActions: [],
-          OKActions: [],
+          AlarmActions: Match.absent(),
+          OKActions: Match.absent(),
           Tags: Match.arrayWith([
             { Key: "lambda_function", Value: Match.anyValue() },
             { Key: "oncall_team", Value: "talis-platform" },
@@ -266,6 +266,33 @@ describe("LambdaWorker", () => {
           ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
         });
       });
+
+      test("doesn't warn about alarms without actions", () => {
+        Annotations.fromStack(stack).hasNoWarning(
+          "*",
+          Match.stringLikeRegexp("Neither alarmTopic nor onCallTeam is set"),
+        );
+      });
+    });
+
+    test("warns when its alarms neither notify nor page anyone", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps: {
+          queueMaxConcurrency: 5,
+          entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
+          handler: "testWorker",
+          memorySize: 2048,
+          runtime: lambda.Runtime.NODEJS_22_X,
+          timeout: cdk.Duration.minutes(5),
+        },
+        queueProps: {},
+      });
+      Annotations.fromStack(stack).hasWarning(
+        "/TestStack/MyTestLambdaWorker",
+        Match.stringLikeRegexp("Neither alarmTopic nor onCallTeam is set"),
+      );
     });
 
     describe("with optional props", () => {

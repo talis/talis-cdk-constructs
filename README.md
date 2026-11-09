@@ -35,7 +35,10 @@ Builds are conducted by CircleCI, and upon successful build of the `main` branch
 - `TalisAlarm`
   - A CloudWatch `Alarm` with optional `onCallTeam`, `runbookUrl` and `lambdaFunctionName` props, set as its `oncall_team`, `runbook_url` and `lambda_function` tags
   - Its tags are propagated to EventBridge, where the rules deployed by [cdk-aws-alarms](https://github.com/talis/cdk-aws-alarms) page that Datadog On-Call team. No SNS topic is needed
+  - Tags only propagate when `onCallTeam` is set, so alarms that don't page are unchanged
+  - Tag values can only contain letters, digits, spaces and `_ . : / = + - @`, so a `runbookUrl` with `?`, `&`, `#` or `%` (e.g. a Confluence `?pageId=` link or a percent-encoded title) fails at synth. Link to a page with a plain path, e.g. on GitHub or a Confluence short link
   - Used by `LambdaWorker`, `AuthenticatedApi` and `AuthenticatedRestApi`, which take `onCallTeam` and `runbookUrl` and set `lambdaFunctionName` on their Lambda alarms; their `alarmTopic` is now optional
+  - Those constructs warn at synth (`talis-cdk-constructs:alarmsWithoutActions`) when neither `alarmTopic` nor `onCallTeam` is set, as their alarms then do nothing
 
 - `TalisCdkStack`
   - Base stack to be extended by talis stacks

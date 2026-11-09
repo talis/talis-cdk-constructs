@@ -31,25 +31,19 @@ export class TalisAlarm extends cloudwatch.Alarm {
       cdk.Tags.of(this).add(key, value);
     }
 
-    // Set as an override because CfnAlarm only has actionConfiguration from aws-cdk-lib 2.275.0.
-    (this.node.defaultChild as cloudwatch.CfnAlarm).addPropertyOverride(
-      "ActionConfiguration.AlarmTagsPropagation.Enabled",
-      true,
-    );
-    // The schema used by synth-time validation (@aws-cdk/core:validateAgainstDefaultRules, on in
-    // new apps) predates ActionConfiguration. Validations only exists in recent aws-cdk-lib.
-    (cdk as { Validations?: CdkValidations }).Validations?.of(this).acknowledge(
-      {
-        id: "CloudFormation-Validate::F3002",
-        reason: "ActionConfiguration is valid but missing from the schema",
-      },
-    );
-  }
-}
+    // Without a team there's nothing to page, so leave the alarm as it was.
+    if (onCallTeam === undefined) {
+      return;
+    }
 
-// shortcut: the part of cdk.Validations used above, until the peer dependency is >= 2.275.0.
-interface CdkValidations {
-  of(scope: Construct): {
-    acknowledge(...rules: { id: string; reason: string }[]): void;
-  };
+    (this.node.defaultChild as cloudwatch.CfnAlarm).actionConfiguration = {
+      alarmTagsPropagation: { enabled: true },
+    };
+    // The schema used by synth-time validation (@aws-cdk/core:validateAgainstDefaultRules, on in
+    // new apps) predates ActionConfiguration.
+    cdk.Validations.of(this).acknowledge({
+      id: "CloudFormation-Validate::F3002",
+      reason: "ActionConfiguration is valid but missing from the schema",
+    });
+  }
 }

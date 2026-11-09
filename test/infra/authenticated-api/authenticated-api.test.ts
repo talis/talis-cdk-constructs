@@ -67,6 +67,8 @@ describe("AuthenticatedApi", () => {
         description: "A simple example API",
         stageName: "development", // This should be development / staging / production as appropriate
         alarmTopic,
+        onCallTeam: "talis-platform",
+        runbookUrl: "https://example.com/runbooks/api",
         vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         domainName: `test-simple-authenticated-api.talis.com`,
@@ -209,13 +211,31 @@ describe("AuthenticatedApi", () => {
       Template.fromStack(stack).resourceCountIs("AWS::CloudWatch::Alarm", 5);
     });
 
+    test("tags the route alarms for paging, with the route's Lambda", () => {
+      Template.fromStack(stack).hasResourceProperties(
+        "AWS::CloudWatch::Alarm",
+        {
+          AlarmName: "test-MyTestAuthenticatedApi-route1-duration-alarm",
+          Tags: [
+            {
+              Key: "lambda_function",
+              Value: { Ref: Match.stringLikeRegexp("route1handler") },
+            },
+            { Key: "oncall_team", Value: "talis-platform" },
+            { Key: "runbook_url", Value: "https://example.com/runbooks/api" },
+          ],
+          ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
+        },
+      );
+    });
+
     test("provisions alarm to warn of latency on the api", () => {
       Template.fromStack(stack).hasResourceProperties(
         "AWS::CloudWatch::Alarm",
         {
           AlarmName: "test-MyTestAuthenticatedApi-latency-alarm",
           AlarmDescription:
-            "The average latency of API test-MyTestAuthenticatedApi was 1 minute or more over 1 minute.",
+            "The latency of API test-MyTestAuthenticatedApi averaged 1 minute or more over the last minute.",
           Namespace: "AWS/ApiGateway",
           MetricName: "Latency",
           Dimensions: [
