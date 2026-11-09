@@ -34,7 +34,7 @@ export async function httpApiHandler(
 ): Promise<
   APIGatewaySimpleAuthorizerWithContextResult<HttpApiAuthorizerContext>
 > {
-  const result = await authorize(event.headers, event.routeKey);
+  const result = await authorize(event.headers, event.routeKey, false);
   const clientId = result.token?.sub ?? "";
   if (result.authorized) {
     return { isAuthorized: true, context: { clientId } };
@@ -54,6 +54,7 @@ export async function restApiHandler(
   const result = await authorize(
     event.headers,
     `${event.httpMethod} ${event.resource}`,
+    true,
   );
   if (!result.authorized && result.missingToken) {
     // API Gateway responds 401 to this exact error message
@@ -85,10 +86,12 @@ type AuthorizeResult =
 
 /**
  * @param routeKey `<METHOD> <route/resource template>`, e.g. `GET /items/{id}`
+ * @param anyFallback see {@link requiredScope}
  */
 async function authorize(
   headers: APIGatewayRequestAuthorizerEventHeaders | null | undefined,
   routeKey: string,
+  anyFallback: boolean,
 ): Promise<AuthorizeResult> {
   const token = header(headers, "authorization")
     ?.replace(/^bearer\b/i, "")
@@ -98,7 +101,7 @@ async function authorize(
     return { authorized: false, insufficientScope: false, missingToken: true };
   }
 
-  const scope = requiredScope(routeKey);
+  const scope = requiredScope(routeKey, anyFallback);
   // Pass the caller's X-Request-Id on to Persona for tracing. Empty or unsafe
   // values (fetch rejects some header characters) get a generated one instead.
   const callerRequestId = header(headers, "x-request-id");
@@ -127,13 +130,21 @@ async function authorize(
   }
 }
 
-/** Scope SCOPE_CONFIG requires for `routeKey`, if any. */
-export function requiredScope(routeKey: string): string | undefined {
-  // REST API events carry the request's verb, not "ANY", for ANY methods
-  const anyMethodKey = routeKey.replace(/^\S+/, "ANY");
-  const key = [routeKey, anyMethodKey].find((k) =>
-    Object.hasOwn(scopeConfig, k),
-  );
+/**
+ * Scope SCOPE_CONFIG requires for `routeKey`, if any.
+ *
+ * @param anyFallback also look up the ANY method on the same route. REST API
+ *   events carry the request's verb, not "ANY", for ANY methods. HTTP API's
+ *   routeKey is the route it matched, so GET /x next to ANY /x stays GET /x.
+ */
+export function requiredScope(
+  routeKey: string,
+  anyFallback: boolean,
+): string | undefined {
+  const keys = anyFallback
+    ? [routeKey, routeKey.replace(/^\S+/, "ANY")]
+    : [routeKey];
+  const key = keys.find((k) => Object.hasOwn(scopeConfig, k));
   // "" marks a method as unscoped, overriding a scoped ANY on the same route
   return key === undefined ? undefined : scopeConfig[key] || undefined;
 }
