@@ -4,7 +4,6 @@ import { aws_ec2 as ec2 } from "aws-cdk-lib";
 import { TalisCdkStackProps } from "./talis-cdk-stack-props";
 import { TalisDeploymentEnvironment } from "./talis-deployment-environment";
 import { getTalisShortRegionFromTalisRegion } from "./talis-region";
-import { getTalisProductForApp } from "./talis-product";
 import { Construct } from "constructs";
 
 export class TalisCdkStack extends cdk.Stack {
@@ -17,7 +16,7 @@ export class TalisCdkStack extends cdk.Stack {
     }
 
     cdk.Tags.of(this).add("tfs-app", props.app); // e.g. depot
-    cdk.Tags.of(this).add("talis:product", getTalisProductForApp(props.app)); // e.g. depot-serverless -> depot
+    cdk.Tags.of(this).add("talis:product", props.product ?? props.app); // e.g. depot
     cdk.Tags.of(this).add("tfs-environment", props.deploymentEnvironment); // e.g. production staging development
     cdk.Tags.of(this).add("tfs-release", props.release); // e.g. 8561-105814f
 
