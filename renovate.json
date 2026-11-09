@@ -43,6 +43,11 @@
       "description": "Types track the minimum supported Node.js runtime (Lambda nodejs22.x), not the dev version",
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "22.x"
+    },
+    {
+      "description": "conventionalcommits@10 needs conventional-changelog-writer@9, which no stable @semantic-release/release-notes-generator ships yet; lift once it does",
+      "matchPackageNames": ["conventional-changelog-conventionalcommits"],
+      "allowedVersions": "9.x"
     }
   ],
   "rebaseWhen": "behind-base-branch",

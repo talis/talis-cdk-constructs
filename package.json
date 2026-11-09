@@ -20,7 +20,8 @@
     "integration-test": "vitest run test/integration",
     "lint": "oxfmt --check && oxlint && tsc",
     "format": "oxfmt",
-    "prepare": "husky && npm run build"
+    "prepare": "husky && npm run build",
+    "release:dry-run": "semantic-release --dry-run --no-ci --branches \"$(git branch --show-current)\""
   },
   "devDependencies": {
     "@aws-sdk/client-api-gateway": "3.1163.0",
@@ -36,7 +37,7 @@
     "aws-cdk-lib": "2.275.0",
     "axios": "1.21.0",
     "constructs": "10.8.1",
-    "conventional-changelog-conventionalcommits": "10.4.1",
+    "conventional-changelog-conventionalcommits": "9.3.1",
     "esbuild": "0.28.2",
     "husky": "9.1.7",
     "oxfmt": "0.77.0",
