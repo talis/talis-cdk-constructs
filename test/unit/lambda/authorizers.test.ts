@@ -63,20 +63,27 @@ afterEach(() => {
 
 describe("requiredScope", () => {
   test("looks up the exact method and route", () => {
-    expect(requiredScope("GET /items/{id}")).toBe("read");
-    expect(requiredScope("POST /items/{id}")).toBeUndefined();
-    expect(requiredScope("GET /items")).toBeUndefined();
-    expect(requiredScope("constructor")).toBeUndefined();
+    for (const anyFallback of [true, false]) {
+      expect(requiredScope("GET /items/{id}", anyFallback)).toBe("read");
+      expect(requiredScope("POST /items/{id}", anyFallback)).toBeUndefined();
+      expect(requiredScope("GET /items", anyFallback)).toBeUndefined();
+      expect(requiredScope("constructor", anyFallback)).toBeUndefined();
+    }
   });
 
-  test("falls back to an ANY method on the same route", () => {
-    expect(requiredScope("POST /admin")).toBe("admin");
-    expect(requiredScope("ANY /admin")).toBe("admin");
-    expect(requiredScope("POST /admin/x")).toBeUndefined();
+  test("falls back to an ANY method on the same route (REST API)", () => {
+    expect(requiredScope("POST /admin", true)).toBe("admin");
+    expect(requiredScope("ANY /admin", true)).toBe("admin");
+    expect(requiredScope("POST /admin/x", true)).toBeUndefined();
+  });
+
+  test("doesn't fall back to ANY without anyFallback (HTTP API)", () => {
+    expect(requiredScope("POST /admin", false)).toBeUndefined();
+    expect(requiredScope("ANY /admin", false)).toBe("admin");
   });
 
   test("lets an unscoped method override a scoped ANY on the same route", () => {
-    expect(requiredScope("GET /admin")).toBeUndefined();
+    expect(requiredScope("GET /admin", true)).toBeUndefined();
   });
 
   test("returns undefined without SCOPE_CONFIG", async () => {
@@ -84,7 +91,7 @@ describe("requiredScope", () => {
     vi.resetModules();
     const { requiredScope } =
       await import("../../../src/lambda/authorizers.js");
-    expect(requiredScope("GET /items/{id}")).toBeUndefined();
+    expect(requiredScope("GET /items/{id}", false)).toBeUndefined();
   });
 });
 
@@ -116,6 +123,13 @@ describe("httpApiHandler", () => {
   test("only requires the scope configured for the route", async () => {
     await expect(
       invoke(bearer({ sub: "client", scopes: [] }), "POST /items/{id}"),
+    ).resolves.toMatchObject({ isAuthorized: true });
+  });
+
+  // API Gateway matched the more specific POST /admin route, so ANY /admin's scope doesn't apply
+  test("doesn't require the scope of an ANY route on the same path", async () => {
+    await expect(
+      invoke(bearer({ sub: "client", scopes: [] }), "POST /admin"),
     ).resolves.toMatchObject({ isAuthorized: true });
   });
 
