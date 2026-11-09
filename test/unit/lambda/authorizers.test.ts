@@ -3,6 +3,7 @@ vi.hoisted(() => {
   process.env.SCOPE_CONFIG = JSON.stringify({
     "GET /items/{id}": "read",
     "ANY /admin": "admin",
+    "GET /admin": "",
     "GET /multi": "read, write",
   });
 });
@@ -72,6 +73,10 @@ describe("requiredScope", () => {
     expect(requiredScope("POST /admin")).toBe("admin");
     expect(requiredScope("ANY /admin")).toBe("admin");
     expect(requiredScope("POST /admin/x")).toBeUndefined();
+  });
+
+  test("lets an unscoped method override a scoped ANY on the same route", () => {
+    expect(requiredScope("GET /admin")).toBeUndefined();
   });
 
   test("returns undefined without SCOPE_CONFIG", async () => {

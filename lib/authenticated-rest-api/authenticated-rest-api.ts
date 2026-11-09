@@ -259,11 +259,17 @@ function collectRequiredScopes(
 ): Record<string, string> {
   for (const resource of resources ?? []) {
     const path = `${parentPath}/${resource.name}`;
-    for (const [method, methodProps] of Object.entries(
-      resource.methods ?? {},
-    )) {
-      if (methodProps.requiredScope) {
-        scopes[`${method.toUpperCase()} ${path}`] = methodProps.requiredScope;
+    const methods = Object.entries(resource.methods ?? {});
+    // The authorizer falls back to ANY's scope, so unscoped methods next to a
+    // scoped ANY get an explicit "" (no scope) entry that wins over it
+    const hasScopedAny = methods.some(
+      ([method, props]) =>
+        method.toUpperCase() === "ANY" && props.requiredScope,
+    );
+    for (const [method, methodProps] of methods) {
+      if (methodProps.requiredScope || hasScopedAny) {
+        scopes[`${method.toUpperCase()} ${path}`] =
+          methodProps.requiredScope ?? "";
       }
     }
     collectRequiredScopes(resource.nestedResources, path, scopes);
