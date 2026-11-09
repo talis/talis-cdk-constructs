@@ -24,11 +24,11 @@
     "release:dry-run": "semantic-release --dry-run --no-ci --branches \"$(git branch --show-current)\""
   },
   "devDependencies": {
-    "@aws-sdk/client-api-gateway": "3.1163.0",
-    "@aws-sdk/client-apigatewayv2": "3.1163.0",
-    "@aws-sdk/client-cloudfront": "3.1163.0",
-    "@aws-sdk/client-s3": "3.1163.0",
-    "@aws-sdk/client-sqs": "3.1163.0",
+    "@aws-sdk/client-api-gateway": "3.1164.0",
+    "@aws-sdk/client-apigatewayv2": "3.1164.0",
+    "@aws-sdk/client-cloudfront": "3.1164.0",
+    "@aws-sdk/client-s3": "3.1164.0",
+    "@aws-sdk/client-sqs": "3.1164.0",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@types/aws-lambda": "8.10.164",
