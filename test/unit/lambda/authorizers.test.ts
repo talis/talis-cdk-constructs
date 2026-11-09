@@ -235,7 +235,7 @@ describe("X-Request-Id sent to Persona", () => {
     expect(sentRequestId()).toBe("caller-id");
   });
 
-  test.each([undefined, ""])(
+  test.each([undefined, "", "bad\nid", "ünïcode", "x".repeat(201)])(
     "generates one when the caller sends %j",
     async (requestId) => {
       await httpApiHandler(
