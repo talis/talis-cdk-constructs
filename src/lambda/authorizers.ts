@@ -129,7 +129,8 @@ export function requiredScope(routeKey: string): string | undefined {
   const key = [routeKey, anyMethodKey].find((k) =>
     Object.hasOwn(scopeConfig, k),
   );
-  return key === undefined ? undefined : scopeConfig[key];
+  // "" marks a method as unscoped, overriding a scoped ANY on the same route
+  return key === undefined ? undefined : scopeConfig[key] || undefined;
 }
 
 // HTTP API lowercases header names; REST API keeps them as sent

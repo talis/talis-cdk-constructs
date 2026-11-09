@@ -57,7 +57,11 @@ describe("AuthenticatedRestApi", () => {
               nestedResources: [
                 {
                   name: "tags",
-                  methods: { ANY: { ...method, requiredScope: "tags:write" } },
+                  methods: {
+                    ANY: { ...method, requiredScope: "tags:write" },
+                    // Unscoped: must not inherit the ANY scope
+                    GET: method,
+                  },
                   nestedResources: [
                     {
                       name: "{tagId}",
@@ -121,6 +125,7 @@ describe("AuthenticatedRestApi", () => {
             "POST /items": "items:write",
             "PUT /items/{itemId}": "items:write,su@items",
             "ANY /items/{itemId}/tags": "tags:write",
+            "GET /items/{itemId}/tags": "",
             "GET /items/{itemId}/tags/{tagId}": "tags:read",
             "GET /users/{userId}/items": "users:read",
           }),
@@ -153,7 +158,7 @@ describe("AuthenticatedRestApi", () => {
       JSON.parse(authorizer.Properties.Environment.Variables.SCOPE_CONFIG),
     );
 
-    expect(scopeKeys).toHaveLength(5);
+    expect(scopeKeys).toHaveLength(6);
     expect(authorizedMethods).toEqual(expect.arrayContaining(scopeKeys));
   });
 });
