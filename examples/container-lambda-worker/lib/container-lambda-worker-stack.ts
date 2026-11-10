@@ -32,15 +32,6 @@ export class ContainerLambdaWorkerStack extends cdk.Stack {
       },
     );
 
-    // LambdaWorker requires an existing SNS topic to publish alarms to.
-    // TODO : A real app would not create this topic which is already created by terraform.
-    // Can we pull in this alarm which is defined in terraform as an example of how to do that
-    const alarmTopic = new sns.Topic(
-      this,
-      `${prefix}container-lambda-Worker-alarm`,
-      { topicName: `${prefix}container-lambda-worker-alarm` },
-    );
-
     const vpc = ec2.Vpc.fromLookup(this, `${prefix}-vpc`, {
       vpcId: "vpc-0155db5e1ab5c28b6",
     });
@@ -70,7 +61,7 @@ export class ContainerLambdaWorkerStack extends cdk.Stack {
         queueProps: {
           maxReceiveCount: 3,
         },
-        alarmTopic: alarmTopic,
+        // onCallTeam: "talis-platform", // pages this Datadog On-Call team when an alarm fires
 
         // Subscribing to a topic is optional
         subscription: {

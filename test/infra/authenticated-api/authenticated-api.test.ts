@@ -67,6 +67,8 @@ describe("AuthenticatedApi", () => {
         description: "A simple example API",
         stageName: "development", // This should be development / staging / production as appropriate
         alarmTopic,
+        onCallTeam: "talis-platform",
+        runbookUrl: "https://example.com/runbooks/api",
         vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         domainName: `test-simple-authenticated-api.talis.com`,
@@ -209,13 +211,31 @@ describe("AuthenticatedApi", () => {
       Template.fromStack(stack).resourceCountIs("AWS::CloudWatch::Alarm", 5);
     });
 
+    test("tags the route alarms for paging, with the route's Lambda", () => {
+      Template.fromStack(stack).hasResourceProperties(
+        "AWS::CloudWatch::Alarm",
+        {
+          AlarmName: "test-MyTestAuthenticatedApi-route1-duration-alarm",
+          Tags: [
+            {
+              Key: "lambda_function",
+              Value: { Ref: Match.stringLikeRegexp("route1handler") },
+            },
+            { Key: "oncall_team", Value: "talis-platform" },
+            { Key: "runbook_url", Value: "https://example.com/runbooks/api" },
+          ],
+          ActionConfiguration: { AlarmTagsPropagation: { Enabled: true } },
+        },
+      );
+    });
+
     test("provisions alarm to warn of latency on the api", () => {
       Template.fromStack(stack).hasResourceProperties(
         "AWS::CloudWatch::Alarm",
         {
           AlarmName: "test-MyTestAuthenticatedApi-latency-alarm",
           AlarmDescription:
-            "Alarm if latency on api test-MyTestAuthenticatedApi exceeds 60000 milliseconds",
+            "The latency of API test-MyTestAuthenticatedApi averaged 1 minute or more over the last minute.",
           Namespace: "AWS/ApiGateway",
           MetricName: "Latency",
           Dimensions: [
@@ -242,7 +262,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route1-duration-alarm",
           AlarmDescription:
-            "Alarm if duration of lambda for route test-MyTestAuthenticatedApi-route1 exceeds duration 60000 milliseconds",
+            "The Lambda for GET /1/test-route-1 of API test-MyTestAuthenticatedApi took 1 minute or longer to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Duration",
           Dimensions: [
@@ -267,7 +287,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route2-duration-alarm",
           AlarmDescription:
-            "Alarm if duration of lambda for route test-MyTestAuthenticatedApi-route2 exceeds duration 60000 milliseconds",
+            "The Lambda for GET /1/test-route-2 of API test-MyTestAuthenticatedApi took 1 minute or longer to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Duration",
           Dimensions: [
@@ -294,7 +314,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route1-errors-alarm",
           AlarmDescription:
-            "Alarm if errors on api test-MyTestAuthenticatedApi-route1",
+            "The Lambda for GET /1/test-route-1 of API test-MyTestAuthenticatedApi failed to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Errors",
           Dimensions: [
@@ -319,7 +339,7 @@ describe("AuthenticatedApi", () => {
         {
           AlarmName: "test-MyTestAuthenticatedApi-route2-errors-alarm",
           AlarmDescription:
-            "Alarm if errors on api test-MyTestAuthenticatedApi-route2",
+            "The Lambda for GET /1/test-route-2 of API test-MyTestAuthenticatedApi failed to handle a request.",
           Namespace: "AWS/Lambda",
           MetricName: "Errors",
           Dimensions: [

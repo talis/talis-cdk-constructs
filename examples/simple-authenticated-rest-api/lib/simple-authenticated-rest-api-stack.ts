@@ -1,5 +1,4 @@
 import * as cdk from "aws-cdk-lib";
-import { aws_sns as sns } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
 import { Construct } from "constructs";
 
@@ -22,13 +21,6 @@ export class SimpleAuthenticatedRestApiStack extends cdk.Stack {
     const prefix = process.env.AWS_PREFIX
       ? process.env.AWS_PREFIX
       : "development-xx-";
-
-    // AuthenticatedApi requires an existing SNS topic to publish alarms to.
-    const alarmTopic = new sns.Topic(
-      this,
-      `${prefix}simple-authenticated-rest-api-alarm`,
-      { topicName: `${prefix}simple-authenticated-rest-api-alarm` },
-    );
 
     // VPC is optional. To use one, you would look it up as follows:
     // const vpc = ec2.Vpc.fromLookup(this, `${prefix}-vpc`, {
@@ -128,7 +120,7 @@ export class SimpleAuthenticatedRestApiStack extends cdk.Stack {
       name: "simple-authenticated-rest-api",
       description: "Simple Authenticated Rest API",
       stageName: "development", // This should be development / staging / production as appropriate
-      alarmTopic,
+      // onCallTeam: "talis-platform", // pages this Datadog On-Call team when an alarm fires
       domainName: `${prefix}simple-authenticated-rest-api.talis.com`,
       certificateArn: STAGING_TALIS_TLS_CERT_ARN,
 

@@ -45,8 +45,13 @@ export interface AuthenticatedApiProps {
    */
   personaOrigin?: string;
 
-  // SNS Topic all alarm actions should be sent to
-  alarmTopic: sns.ITopic;
+  // Optional SNS Topic all alarm actions should be sent to
+  alarmTopic?: sns.ITopic;
+
+  // Datadog On-Call team paged by the alarms, and the runbook linked from
+  // the page. See TalisAlarm.
+  onCallTeam?: string | undefined;
+  runbookUrl?: string | undefined;
 
   // The ApiGateway will have an alarm for the latency of responces.
   // This covers all routes in the API. By default the threshold for
