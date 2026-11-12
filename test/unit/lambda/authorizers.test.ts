@@ -225,9 +225,11 @@ describe("X-Request-Id sent to Persona", () => {
   // scopeCount forces a call to Persona on every request
   const remoteScopeToken = bearer({ sub: "client", scopeCount: 50 });
   const sentRequestId = () =>
-    (vi.mocked(fetch).mock.lastCall?.[1]?.headers as Record<string, string>)[
-      "X-Request-Id"
-    ];
+    (
+      vi.mocked(fetch).mock.lastCall?.[1]?.headers as
+        | Record<string, string>
+        | undefined
+    )?.["X-Request-Id"];
 
   test("forwards the caller's X-Request-Id (HTTP API)", async () => {
     await httpApiHandler(
