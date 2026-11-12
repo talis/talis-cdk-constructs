@@ -764,6 +764,131 @@ describe("LambdaWorker", () => {
     }
   });
 
+  describe("granting permissions", () => {
+    const lambdaProps = {
+      queueMaxConcurrency: 5,
+      entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
+      handler: "testWorker",
+      memorySize: 1024,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(5),
+    };
+
+    const fallbacks = [{ memorySize: 2048 }, { memorySize: 4096 }];
+
+    // Per lambda in the stack: its env vars, its role and the role's statements
+    function lambdas(stack: cdk.Stack) {
+      const template = Template.fromStack(stack);
+      return Object.values(template.findResources("AWS::Lambda::Function")).map(
+        (fn) => {
+          const roleId: string = fn.Properties.Role["Fn::GetAtt"][0];
+          return {
+            environment: fn.Properties.Environment?.Variables,
+            roleId,
+            statements: Object.values(
+              template.findResources("AWS::IAM::Policy", {
+                Properties: { Roles: [{ Ref: roleId }] },
+              }),
+            ).flatMap((policy) => policy.Properties.PolicyDocument.Statement),
+          };
+        },
+      );
+    }
+
+    function queueLogicalId(stack: cdk.Stack, worker: LambdaWorker): string {
+      return stack.getLogicalId(
+        worker.lambdaQueue.node.defaultChild as cdk.CfnElement,
+      );
+    }
+
+    test("shares the main lambda's role across tiers", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      const statement = new iam.PolicyStatement({
+        actions: ["s3:ListAllMyBuckets"],
+        resources: ["*"],
+      });
+      new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps: { ...lambdaProps, policyStatements: [statement] },
+        fallbacks,
+      });
+
+      const template = Template.fromStack(stack);
+      template.resourceCountIs("AWS::IAM::Role", 1);
+      const tiers = lambdas(stack);
+      expect(tiers).toHaveLength(3);
+      expect(new Set(tiers.map((tier) => tier.roleId)).size).toBe(1);
+
+      // The role has policyStatements and can consume every tier's queue and the DLQ
+      const { statements } = tiers[0];
+      expect(statements).toContainEqual(statement.toStatementJson());
+      const queueIds = Object.keys(template.findResources("AWS::SQS::Queue"));
+      expect(queueIds).toHaveLength(4);
+      for (const queueId of queueIds) {
+        expect(statements).toContainEqual(
+          expect.objectContaining({
+            Action: expect.arrayContaining(["sqs:ReceiveMessage"]),
+            Resource: { "Fn::GetAtt": [queueId, "Arn"] },
+          }),
+        );
+      }
+    });
+
+    test("grants to the shared role", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      const worker = new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps,
+        fallbacks,
+      });
+
+      new sns.Topic(stack, "Topic").grantPublish(worker);
+
+      expect(lambdas(stack)[0].statements).toContainEqual(
+        expect.objectContaining({ Action: "sns:Publish" }),
+      );
+    });
+
+    test("adds env vars to every tier's lambda", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      const worker = new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps,
+        fallbacks,
+      });
+
+      worker.addEnvironment("FOO", "bar");
+
+      const tiers = lambdas(stack);
+      expect(tiers).toHaveLength(3);
+      for (const tier of tiers) {
+        expect(tier.environment).toMatchObject({ FOO: "bar" });
+      }
+    });
+
+    test("lets the lambda send to its own queue", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      const worker = new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps,
+      });
+
+      worker.lambdaQueue.grantSendMessages(worker);
+      worker.addEnvironment("QUEUE_URL", worker.lambdaQueueUrl);
+
+      const [only] = lambdas(stack);
+      expect(only.statements).toContainEqual(
+        expect.objectContaining({
+          Action: expect.arrayContaining(["sqs:SendMessage"]),
+          Resource: { "Fn::GetAtt": [queueLogicalId(stack, worker), "Arn"] },
+        }),
+      );
+      expect(only.environment).toMatchObject({
+        QUEUE_URL: { Ref: queueLogicalId(stack, worker) },
+      });
+    });
+  });
+
   describe("with fifo queue", () => {
     let stack: cdk.Stack;
 

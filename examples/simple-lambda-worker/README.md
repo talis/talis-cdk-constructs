@@ -18,6 +18,14 @@ Optionionally, the LambdaWorker:
   - For example all Depot workers subscribe to a "File" topic in a Pub/Sub architecture.
 - can have a filterPolicy specified so that it only receives messages from the SNS topic which it is interested in.
 
+Permissions and environment variables can be added after the LambdaWorker is created, and apply to the lambda of every fallback tier too:
+
+```ts
+bucket.grantRead(worker);
+worker.lambdaQueue.grantSendMessages(worker);
+worker.addEnvironment("QUEUE_URL", worker.lambdaQueueUrl);
+```
+
 ## Construct Diagram
 
 ![LambdaWorker Construct diagram](LambdaWorker.drawio.png)

@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import { aws_ecr as ecr } from "aws-cdk-lib";
+import { aws_iam as iam } from "aws-cdk-lib";
 import { aws_sns_subscriptions as subs } from "aws-cdk-lib";
 import { aws_sqs as sqs } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
@@ -22,7 +23,7 @@ const DEFAULT_APPROX_NUM_MESSAGES_VISIBLE_THRESHOLD = 1000;
 const MINIMUM_MEMORY_SIZE = 1024;
 const MINIMUM_LAMBDA_TIMEOUT = cdk.Duration.seconds(30);
 
-export class LambdaWorker extends Construct {
+export class LambdaWorker extends Construct implements iam.IGrantable {
   // The ARN of the queue messages for this LambdaWorker to process
   // should be placed on.
   public lambdaQueueArn: string;
@@ -40,6 +41,13 @@ export class LambdaWorker extends Construct {
   // findByArn. Direct access to the queue is provided to allow modification
   // of the queue, for example for EventBridge iam permissions.
   public readonly lambdaQueue: sqs.Queue;
+
+  // One lambda per tier: the main one first, then each fallback.
+  private readonly lambdaFunctions: lambda.Function[];
+
+  // The role shared by every tier's lambda: grants to the LambdaWorker
+  // (e.g. bucket.grantRead(worker)) apply to fallbacks too.
+  public readonly grantPrincipal: iam.IPrincipal;
 
   constructor(scope: Construct, id: string, props: LambdaWorkerProps) {
     super(scope, id);
@@ -168,19 +176,20 @@ export class LambdaWorker extends Construct {
       );
     }
 
-    // Create the lambdas
-    const lambdaFunctions: lambda.Function[] = [];
-    tiers.forEach((tier, tierIndex) => {
-      const lambdaWorker: lambda.Function = this.createLambdaFunction(tier);
-      lambdaFunctions.push(lambdaWorker);
+    // Create the lambdas. Fallback tiers share the main lambda's role, so
+    // policyStatements and grants to the worker apply to every tier.
+    const mainLambda = this.createLambdaFunction(tiers[0]);
+    const lambdaFunctions = [
+      mainLambda,
+      ...tiers
+        .slice(1)
+        .map((tier) => this.createLambdaFunction(tier, mainLambda.role)),
+    ];
+    for (const statement of props.lambdaProps.policyStatements ?? []) {
+      mainLambda.addToRolePolicy(statement);
+    }
 
-      if (props.lambdaProps.policyStatements) {
-        for (const statement of props.lambdaProps.policyStatements) {
-          // Changed to addToPrincipalPolicy - is this correct?
-          lambdaWorker.role?.addToPrincipalPolicy(statement);
-        }
-      }
-
+    lambdaFunctions.forEach((lambdaWorker, tierIndex) => {
       // Each tier consumes its own queue. The last tier also gets the DLQ
       // as a disabled event source so failed jobs can be replayed.
       lambdaWorker.addEventSource(
@@ -200,6 +209,8 @@ export class LambdaWorker extends Construct {
         );
       }
     });
+    this.lambdaFunctions = lambdaFunctions;
+    this.grantPrincipal = mainLambda.grantPrincipal;
 
     // Add alerting
 
@@ -297,6 +308,13 @@ export class LambdaWorker extends Construct {
     queueMessagesVisable.addOkAction(...alarmActions);
   }
 
+  addEnvironment(key: string, value: string): this {
+    for (const fn of this.lambdaFunctions) {
+      fn.addEnvironment(key, value);
+    }
+    return this;
+  }
+
   isContainerLambda(props: LambdaWorkerProps): boolean {
     return (
       this.hasContainerLambdaProps(props) && !this.hasFunctionLambdaProps(props)
@@ -316,12 +334,15 @@ export class LambdaWorker extends Construct {
     return false;
   }
 
-  createLambdaFunction(props: LambdaWorkerProps): lambda.Function {
+  createLambdaFunction(
+    props: LambdaWorkerProps,
+    role?: iam.IRole,
+  ): lambda.Function {
     if (this.isContainerLambda(props)) {
-      return this.createContainerLambdaFunction(props);
+      return this.createContainerLambdaFunction(props, role);
     }
 
-    return this.createNodejsLambdaFunction(props);
+    return this.createNodejsLambdaFunction(props, role);
   }
 
   private hasContainerLambdaProps(props: LambdaWorkerProps): boolean {
@@ -343,9 +364,11 @@ export class LambdaWorker extends Construct {
 
   private createNodejsLambdaFunction(
     props: LambdaWorkerProps,
+    role?: iam.IRole,
   ): lambda.Function {
     return new lambdaNodeJs.NodejsFunction(this, props.name, {
       functionName: props.name,
+      role,
 
       // Pass through props from lambda props object
       // Documented here https://docs.aws.amazon.com/cdk/api/latest/docs/@aws-cdk_aws-lambda-nodejs.NodejsFunctionProps.html
@@ -378,10 +401,12 @@ export class LambdaWorker extends Construct {
 
   private createContainerLambdaFunction(
     props: LambdaWorkerProps,
+    role?: iam.IRole,
   ): lambda.Function {
     return new lambda.DockerImageFunction(this, props.name, {
       code: this.getContainerLambdaCode(props),
       functionName: props.name,
+      role,
       description: props.lambdaProps.description,
       environment: buildLambdaEnvironment({
         environment: props.lambdaProps.environment,
