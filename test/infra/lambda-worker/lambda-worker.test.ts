@@ -776,13 +776,14 @@ describe("LambdaWorker", () => {
 
     const fallbacks = [{ memorySize: 2048 }, { memorySize: 4096 }];
 
-    // Per lambda in the stack: its role and the role's statements
+    // Per lambda in the stack: its env vars, its role and the role's statements
     function lambdas(stack: cdk.Stack) {
       const template = Template.fromStack(stack);
       return Object.values(template.findResources("AWS::Lambda::Function")).map(
         (fn) => {
           const roleId: string = fn.Properties.Role["Fn::GetAtt"][0];
           return {
+            environment: fn.Properties.Environment?.Variables,
             roleId,
             statements: Object.values(
               template.findResources("AWS::IAM::Policy", {
@@ -848,6 +849,23 @@ describe("LambdaWorker", () => {
       );
     });
 
+    test("adds env vars to every tier's lambda", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      const worker = new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps,
+        fallbacks,
+      });
+
+      worker.addEnvironment("FOO", "bar");
+
+      const tiers = lambdas(stack);
+      expect(tiers).toHaveLength(3);
+      for (const tier of tiers) {
+        expect(tier.environment).toMatchObject({ FOO: "bar" });
+      }
+    });
+
     test("lets the lambda send to its own queue", () => {
       const stack = new cdk.Stack(new cdk.App(), "TestStack");
       const worker = new LambdaWorker(stack, "MyTestLambdaWorker", {
@@ -856,6 +874,7 @@ describe("LambdaWorker", () => {
       });
 
       worker.lambdaQueue.grantSendMessages(worker);
+      worker.addEnvironment("QUEUE_URL", worker.lambdaQueueUrl);
 
       const [only] = lambdas(stack);
       expect(only.statements).toContainEqual(
@@ -864,6 +883,9 @@ describe("LambdaWorker", () => {
           Resource: { "Fn::GetAtt": [queueLogicalId(stack, worker), "Arn"] },
         }),
       );
+      expect(only.environment).toMatchObject({
+        QUEUE_URL: { Ref: queueLogicalId(stack, worker) },
+      });
     });
   });
 

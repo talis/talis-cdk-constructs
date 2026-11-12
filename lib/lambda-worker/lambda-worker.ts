@@ -42,6 +42,9 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
   // of the queue, for example for EventBridge iam permissions.
   public readonly lambdaQueue: sqs.Queue;
 
+  // One lambda per tier: the main one first, then each fallback.
+  private readonly lambdaFunctions: lambda.Function[];
+
   // The role shared by every tier's lambda: grants to the LambdaWorker
   // (e.g. bucket.grantRead(worker)) apply to fallbacks too.
   public readonly grantPrincipal: iam.IPrincipal;
@@ -206,6 +209,7 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
         );
       }
     });
+    this.lambdaFunctions = lambdaFunctions;
     this.grantPrincipal = mainLambda.grantPrincipal;
 
     // Add alerting
@@ -302,6 +306,13 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
     );
     queueMessagesVisable.addAlarmAction(...alarmActions);
     queueMessagesVisable.addOkAction(...alarmActions);
+  }
+
+  addEnvironment(key: string, value: string): this {
+    for (const fn of this.lambdaFunctions) {
+      fn.addEnvironment(key, value);
+    }
+    return this;
   }
 
   isContainerLambda(props: LambdaWorkerProps): boolean {
