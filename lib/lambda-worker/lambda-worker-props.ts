@@ -84,8 +84,7 @@ export interface LambdaWorkerProps {
     // This will default to 1 hour.
     approximateAgeOfOldestMessageThreshold?: cdk.Duration;
 
-    // The threshold for the alarm on the ApproximateNumberOfMessagesVisible metric
-    // i.e. An alarm will be triggered if more than this number of messages is on the queue
+    /** @deprecated Ignored: the queue messages visible alarm has been removed. */
     approximateNumberOfMessagesVisibleThreshold?: number;
 
     // Use a FIFO queue. Defaults to false;
@@ -100,6 +99,12 @@ export interface LambdaWorkerProps {
   // the page. See TalisAlarm.
   onCallTeam?: string | undefined;
   runbookUrl?: string | undefined;
+
+  // Per-alarm runbooks, overriding runbookUrl for that alarm.
+  runbookUrls?: {
+    dlqMessagesVisible?: string | undefined;
+    queueMessageAge?: string | undefined;
+  };
 
   // Optional subscribe to SNS topic options
   subscription?: {

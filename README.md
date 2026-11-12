@@ -38,6 +38,7 @@ Builds are conducted by CircleCI, and upon successful build of the `main` branch
   - Tags only propagate when `onCallTeam` is set, so alarms that don't page are unchanged
   - Tag values can only contain letters, digits, spaces and `_ . : / = + - @`, so a `runbookUrl` with `?`, `&`, `#` or `%` (e.g. a Confluence `?pageId=` link or a percent-encoded title) fails at synth. Link to a page with a plain path, e.g. on GitHub or a Confluence short link
   - Used by `LambdaWorker`, `AuthenticatedApi` and `AuthenticatedRestApi`, which take `onCallTeam` and `runbookUrl` and set `lambdaFunctionName` on their Lambda alarms; their `alarmTopic` is now optional
+  - `LambdaWorker` also takes `runbookUrls` (`dlqMessagesVisible`, `queueMessageAge`) to link a different runbook per alarm, falling back to `runbookUrl`
   - Those constructs warn at synth (`talis-cdk-constructs:alarmsWithoutActions`) when neither `alarmTopic` nor `onCallTeam` is set, as their alarms then do nothing
 
 - `TalisCdkStack`

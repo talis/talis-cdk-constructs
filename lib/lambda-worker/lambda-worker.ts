@@ -19,7 +19,6 @@ import { TalisAlarm } from "../talis-alarm";
 
 const DEFAULT_MAX_RECEIVE_COUNT = 5;
 const DEFAULT_APPROX_AGE_OLDEST_MESSAGE_THRESHOLD = cdk.Duration.hours(1);
-const DEFAULT_APPROX_NUM_MESSAGES_VISIBLE_THRESHOLD = 1000;
 const MINIMUM_MEMORY_SIZE = 1024;
 const MINIMUM_LAMBDA_TIMEOUT = cdk.Duration.seconds(30);
 
@@ -90,12 +89,6 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
       props.queueProps.approximateAgeOfOldestMessageThreshold
         ? props.queueProps.approximateAgeOfOldestMessageThreshold
         : DEFAULT_APPROX_AGE_OLDEST_MESSAGE_THRESHOLD;
-
-    const approximateNumberOfMessagesVisibleThreshold =
-      props.queueProps &&
-      props.queueProps.approximateNumberOfMessagesVisibleThreshold
-        ? props.queueProps.approximateNumberOfMessagesVisibleThreshold
-        : DEFAULT_APPROX_NUM_MESSAGES_VISIBLE_THRESHOLD;
 
     const fifo = this.isFifo(props);
 
@@ -236,7 +229,7 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
       `${props.name}-dlq-messages-visible-alarm`,
       {
         onCallTeam: props.onCallTeam,
-        runbookUrl: props.runbookUrl,
+        runbookUrl: props.runbookUrls?.dlqMessagesVisible ?? props.runbookUrl,
         alarmName: `${props.name}-dlq-messages-visible-alarm`,
         // The last tier dead-letters to the DLQ.
         lambdaFunctionName:
@@ -265,7 +258,7 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
       `${props.name}-queue-message-age-alarm`,
       {
         onCallTeam: props.onCallTeam,
-        runbookUrl: props.runbookUrl,
+        runbookUrl: props.runbookUrls?.queueMessageAge ?? props.runbookUrl,
         alarmName: `${props.name}-queue-message-age-alarm`,
         lambdaFunctionName: lambdaFunctions[0].functionName,
         alarmDescription: `The trigger queue for Lambda worker ${props.name} has messages older than ${approximateAgeOfOldestMessageThreshold.toHumanString()}.`,
@@ -282,30 +275,6 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
     );
     queueMessagesAge.addAlarmAction(...alarmActions);
     queueMessagesAge.addOkAction(...alarmActions);
-
-    // Add an alarm for more than "approximateNumberOfMessagesVisible" messages on the queue
-    const queueMessagesVisable = new TalisAlarm(
-      this,
-      `${props.name}-queue-messages-visible-alarm`,
-      {
-        onCallTeam: props.onCallTeam,
-        runbookUrl: props.runbookUrl,
-        alarmName: `${props.name}-queue-messages-visible-alarm`,
-        lambdaFunctionName: lambdaFunctions[0].functionName,
-        alarmDescription: `The trigger queue for Lambda worker ${props.name} has ${approximateNumberOfMessagesVisibleThreshold} or more messages waiting.`,
-        actionsEnabled: true,
-        metric: approximateNumberOfMessagesVisibleMetric,
-        evaluationPeriods: 1,
-        threshold: approximateNumberOfMessagesVisibleThreshold,
-        comparisonOperator:
-          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-        // Set treatMissingData to IGNORE
-        // Stops alarms with minimal data having false alarms when they transition to this state
-        treatMissingData: cloudwatch.TreatMissingData.IGNORE,
-      },
-    );
-    queueMessagesVisable.addAlarmAction(...alarmActions);
-    queueMessagesVisable.addOkAction(...alarmActions);
   }
 
   addEnvironment(key: string, value: string): this {
