@@ -216,6 +216,15 @@ export class LambdaWorker extends Construct implements iam.IGrantable {
         "Neither alarmTopic nor onCallTeam is set, so this construct's alarms won't notify or page anyone.",
       );
     }
+    if (
+      props.queueProps?.approximateNumberOfMessagesVisibleThreshold !==
+      undefined
+    ) {
+      cdk.Annotations.of(this).addWarningV2(
+        "talis-cdk-constructs:deprecatedMessagesVisibleThreshold",
+        "queueProps.approximateNumberOfMessagesVisibleThreshold is ignored: the queue messages visible alarm has been removed.",
+      );
+    }
 
     // Add an alarm on any messages appearing on the DLQ
     const approximateNumberOfMessagesVisibleMetric = lambdaDLQ
