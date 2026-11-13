@@ -10,4 +10,7 @@ export interface TalisCdkStackProps extends cdk.StackProps {
   // The following are used to create tags on the cloud formation stack.
   readonly release: string; // tag tfs-release
   readonly app: string; // tag tfs-app
+  // Product this app belongs to, from the Talis tagging reference (e.g. depot
+  // for depot-serverless). Tag talis:product; defaults to app.
+  readonly product?: string;
 }

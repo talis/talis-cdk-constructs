@@ -63,6 +63,10 @@ describe("Talis CDK Stack", () => {
       Template.fromStack(stack).hasResourceProperties("AWS::SNS::Topic", {
         Tags: [
           {
+            Key: "talis:product",
+            Value: "depot",
+          },
+          {
             Key: "tfs-app",
             Value: "depot",
           },
@@ -86,6 +90,26 @@ describe("Talis CDK Stack", () => {
         TopicName: "TestAlarm",
       });
     });
+    it("Should tag talis:product from the product prop", () => {
+      app = new cdk.App();
+      stack = new TalisCdkStack(app, "TestStack", {
+        deploymentEnvironment: TalisDeploymentEnvironment.TEST,
+        app: "depot-serverless",
+        product: "depot",
+        release: "1234-105814f",
+      });
+
+      new sns.Topic(stack, "TestAlarm", {
+        topicName: "TestAlarm",
+      });
+
+      Template.fromStack(stack).hasResourceProperties("AWS::SNS::Topic", {
+        Tags: Match.arrayWith([
+          { Key: "talis:product", Value: "depot" },
+          { Key: "tfs-app", Value: "depot-serverless" },
+        ]),
+      });
+    });
     it("Should have correct tags when no environment", () => {
       app = new cdk.App();
       stack = new TalisCdkStack(app, "TestStack", {
@@ -102,6 +126,10 @@ describe("Talis CDK Stack", () => {
 
       Template.fromStack(stack).hasResourceProperties("AWS::SNS::Topic", {
         Tags: [
+          {
+            Key: "talis:product",
+            Value: "test-depot",
+          },
           {
             Key: "tfs-app",
             Value: "test-depot",

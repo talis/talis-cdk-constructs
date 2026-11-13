@@ -16,6 +16,7 @@ export class TalisCdkStack extends cdk.Stack {
     }
 
     cdk.Tags.of(this).add("tfs-app", props.app); // e.g. depot
+    cdk.Tags.of(this).add("talis:product", props.product ?? props.app); // e.g. depot
     cdk.Tags.of(this).add("tfs-environment", props.deploymentEnvironment); // e.g. production staging development
     cdk.Tags.of(this).add("tfs-release", props.release); // e.g. 8561-105814f
 
