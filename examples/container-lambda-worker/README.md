@@ -9,7 +9,6 @@ The LambdaWorker:
 - is subscribed to the dead letter queue but this trigger is disabled by default
 - allows for the replay of failed jobs with the talis-cli tools awsdlq tool
 - triggers an alarm for failed jobs
-- triggers an alarm when the queue of jobs exceeds a configuarble maximum threshold
 - triggers an alarm when a message waiting on the queue is older than a configurable maximum
 
 The Container LambdaWorker:

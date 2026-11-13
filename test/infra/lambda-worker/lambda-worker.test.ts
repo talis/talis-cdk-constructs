@@ -132,8 +132,8 @@ describe("LambdaWorker", () => {
         );
       });
 
-      test("provisions three alarms", () => {
-        Template.fromStack(stack).resourceCountIs("AWS::CloudWatch::Alarm", 3);
+      test("provisions two alarms", () => {
+        Template.fromStack(stack).resourceCountIs("AWS::CloudWatch::Alarm", 2);
       });
 
       test("provisions a message visible alarm on the dead letter queue", () => {
@@ -159,36 +159,6 @@ describe("LambdaWorker", () => {
             Period: 60,
             Statistic: "Sum",
             Threshold: 1,
-            ComparisonOperator: "GreaterThanOrEqualToThreshold",
-            TreatMissingData: "ignore",
-            OKActions: [{ Ref: "TestAlarm5A9EF6BD" }],
-          },
-        );
-      });
-
-      test("provisions a message visible alarm on the main queue", () => {
-        Template.fromStack(stack).hasResourceProperties(
-          "AWS::CloudWatch::Alarm",
-          {
-            AlarmName: "MyTestLambdaWorker-queue-messages-visible-alarm",
-            AlarmDescription:
-              "The trigger queue for Lambda worker MyTestLambdaWorker has 1000 or more messages waiting.",
-            Namespace: "AWS/SQS",
-            MetricName: "ApproximateNumberOfMessagesVisible",
-            Dimensions: [
-              {
-                Name: "QueueName",
-                Value: {
-                  "Fn::GetAtt": [
-                    "MyTestLambdaWorkerMyTestLambdaWorkerdlq27BBFD95",
-                    "QueueName",
-                  ],
-                },
-              },
-            ],
-            Period: 60,
-            Statistic: "Sum",
-            Threshold: 1000,
             ComparisonOperator: "GreaterThanOrEqualToThreshold",
             TreatMissingData: "ignore",
             OKActions: [{ Ref: "TestAlarm5A9EF6BD" }],
@@ -249,9 +219,9 @@ describe("LambdaWorker", () => {
         });
       });
 
-      test("provisions three tagged alarms without actions", () => {
+      test("provisions two tagged alarms without actions", () => {
         const template = Template.fromStack(stack);
-        template.resourceCountIs("AWS::CloudWatch::Alarm", 3);
+        template.resourceCountIs("AWS::CloudWatch::Alarm", 2);
         template.allResourcesProperties("AWS::CloudWatch::Alarm", {
           AlarmActions: Match.absent(),
           OKActions: Match.absent(),
@@ -275,6 +245,34 @@ describe("LambdaWorker", () => {
       });
     });
 
+    test("runbookUrls overrides runbookUrl per alarm", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps: {
+          queueMaxConcurrency: 5,
+          entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
+          handler: "testWorker",
+          memorySize: 2048,
+          runtime: lambda.Runtime.NODEJS_22_X,
+          timeout: cdk.Duration.minutes(5),
+        },
+        onCallTeam: "talis-platform",
+        runbookUrl: "https://example.com/runbooks/worker",
+        runbookUrls: { dlqMessagesVisible: "https://example.com/runbooks/dlq" },
+      });
+      const runbook = (alarm: string, url: string) =>
+        Template.fromStack(stack).hasResourceProperties(
+          "AWS::CloudWatch::Alarm",
+          {
+            AlarmName: `MyTestLambdaWorker-${alarm}-alarm`,
+            Tags: Match.arrayWith([{ Key: "runbook_url", Value: url }]),
+          },
+        );
+      runbook("dlq-messages-visible", "https://example.com/runbooks/dlq");
+      runbook("queue-message-age", "https://example.com/runbooks/worker");
+    });
+
     test("warns when its alarms neither notify nor page anyone", () => {
       const stack = new cdk.Stack(new cdk.App(), "TestStack");
       new LambdaWorker(stack, "MyTestLambdaWorker", {
@@ -292,6 +290,28 @@ describe("LambdaWorker", () => {
       Annotations.fromStack(stack).hasWarning(
         "/TestStack/MyTestLambdaWorker",
         Match.stringLikeRegexp("Neither alarmTopic nor onCallTeam is set"),
+      );
+    });
+
+    test("warns that approximateNumberOfMessagesVisibleThreshold is ignored", () => {
+      const stack = new cdk.Stack(new cdk.App(), "TestStack");
+      new LambdaWorker(stack, "MyTestLambdaWorker", {
+        name: "MyTestLambdaWorker",
+        lambdaProps: {
+          queueMaxConcurrency: 5,
+          entry: "examples/simple-lambda-worker/src/lambda/simple-worker.js",
+          handler: "testWorker",
+          memorySize: 2048,
+          runtime: lambda.Runtime.NODEJS_22_X,
+          timeout: cdk.Duration.minutes(5),
+        },
+        queueProps: { approximateNumberOfMessagesVisibleThreshold: 500 },
+      });
+      Annotations.fromStack(stack).hasWarning(
+        "/TestStack/MyTestLambdaWorker",
+        Match.stringLikeRegexp(
+          "approximateNumberOfMessagesVisibleThreshold is ignored",
+        ),
       );
     });
 
@@ -679,7 +699,6 @@ describe("LambdaWorker", () => {
         });
       lambdaFunction("dlq-messages-visible", "MyTestLambdaWorker-02");
       lambdaFunction("queue-message-age", "MyTestLambdaWorker");
-      lambdaFunction("queue-messages-visible", "MyTestLambdaWorker");
     });
 
     test("sets retryAttempts to 1 on all but the last tier", () => {
@@ -1066,8 +1085,8 @@ describe("LambdaWorker", () => {
         });
       });
 
-      test("provisions three alarms", () => {
-        Template.fromStack(stack).resourceCountIs("AWS::CloudWatch::Alarm", 3);
+      test("provisions two alarms", () => {
+        Template.fromStack(stack).resourceCountIs("AWS::CloudWatch::Alarm", 2);
       });
 
       test("provisions a message visible alarm on the dead letter queue", () => {
@@ -1093,36 +1112,6 @@ describe("LambdaWorker", () => {
             Period: 60,
             Statistic: "Sum",
             Threshold: 1,
-            ComparisonOperator: "GreaterThanOrEqualToThreshold",
-            TreatMissingData: "ignore",
-            OKActions: [{ Ref: "TestAlarm5A9EF6BD" }],
-          },
-        );
-      });
-
-      test("provisions a message visible alarm on the main queue", () => {
-        Template.fromStack(stack).hasResourceProperties(
-          "AWS::CloudWatch::Alarm",
-          {
-            AlarmName: "MyTestLambdaWorker-queue-messages-visible-alarm",
-            AlarmDescription:
-              "The trigger queue for Lambda worker MyTestLambdaWorker has 1000 or more messages waiting.",
-            Namespace: "AWS/SQS",
-            MetricName: "ApproximateNumberOfMessagesVisible",
-            Dimensions: [
-              {
-                Name: "QueueName",
-                Value: {
-                  "Fn::GetAtt": [
-                    "MyTestLambdaWorkerMyTestLambdaWorkerdlq27BBFD95",
-                    "QueueName",
-                  ],
-                },
-              },
-            ],
-            Period: 60,
-            Statistic: "Sum",
-            Threshold: 1000,
             ComparisonOperator: "GreaterThanOrEqualToThreshold",
             TreatMissingData: "ignore",
             OKActions: [{ Ref: "TestAlarm5A9EF6BD" }],
