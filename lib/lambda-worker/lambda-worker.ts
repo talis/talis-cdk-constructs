@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import { aws_ecr as ecr } from "aws-cdk-lib";
+import { aws_iam as iam } from "aws-cdk-lib";
 import { aws_sns_subscriptions as subs } from "aws-cdk-lib";
 import { aws_sqs as sqs } from "aws-cdk-lib";
 import { aws_lambda as lambda } from "aws-cdk-lib";
@@ -18,11 +19,10 @@ import { TalisAlarm } from "../talis-alarm";
 
 const DEFAULT_MAX_RECEIVE_COUNT = 5;
 const DEFAULT_APPROX_AGE_OLDEST_MESSAGE_THRESHOLD = cdk.Duration.hours(1);
-const DEFAULT_APPROX_NUM_MESSAGES_VISIBLE_THRESHOLD = 1000;
 const MINIMUM_MEMORY_SIZE = 1024;
 const MINIMUM_LAMBDA_TIMEOUT = cdk.Duration.seconds(30);
 
-export class LambdaWorker extends Construct {
+export class LambdaWorker extends Construct implements iam.IGrantable {
   // The ARN of the queue messages for this LambdaWorker to process
   // should be placed on.
   public lambdaQueueArn: string;
@@ -40,6 +40,13 @@ export class LambdaWorker extends Construct {
   // findByArn. Direct access to the queue is provided to allow modification
   // of the queue, for example for EventBridge iam permissions.
   public readonly lambdaQueue: sqs.Queue;
+
+  // One lambda per tier: the main one first, then each fallback.
+  private readonly lambdaFunctions: lambda.Function[];
+
+  // The role shared by every tier's lambda: grants to the LambdaWorker
+  // (e.g. bucket.grantRead(worker)) apply to fallbacks too.
+  public readonly grantPrincipal: iam.IPrincipal;
 
   constructor(scope: Construct, id: string, props: LambdaWorkerProps) {
     super(scope, id);
@@ -82,12 +89,6 @@ export class LambdaWorker extends Construct {
       props.queueProps.approximateAgeOfOldestMessageThreshold
         ? props.queueProps.approximateAgeOfOldestMessageThreshold
         : DEFAULT_APPROX_AGE_OLDEST_MESSAGE_THRESHOLD;
-
-    const approximateNumberOfMessagesVisibleThreshold =
-      props.queueProps &&
-      props.queueProps.approximateNumberOfMessagesVisibleThreshold
-        ? props.queueProps.approximateNumberOfMessagesVisibleThreshold
-        : DEFAULT_APPROX_NUM_MESSAGES_VISIBLE_THRESHOLD;
 
     const fifo = this.isFifo(props);
 
@@ -168,19 +169,20 @@ export class LambdaWorker extends Construct {
       );
     }
 
-    // Create the lambdas
-    const lambdaFunctions: lambda.Function[] = [];
-    tiers.forEach((tier, tierIndex) => {
-      const lambdaWorker: lambda.Function = this.createLambdaFunction(tier);
-      lambdaFunctions.push(lambdaWorker);
+    // Create the lambdas. Fallback tiers share the main lambda's role, so
+    // policyStatements and grants to the worker apply to every tier.
+    const mainLambda = this.createLambdaFunction(tiers[0]);
+    const lambdaFunctions = [
+      mainLambda,
+      ...tiers
+        .slice(1)
+        .map((tier) => this.createLambdaFunction(tier, mainLambda.role)),
+    ];
+    for (const statement of props.lambdaProps.policyStatements ?? []) {
+      mainLambda.addToRolePolicy(statement);
+    }
 
-      if (props.lambdaProps.policyStatements) {
-        for (const statement of props.lambdaProps.policyStatements) {
-          // Changed to addToPrincipalPolicy - is this correct?
-          lambdaWorker.role?.addToPrincipalPolicy(statement);
-        }
-      }
-
+    lambdaFunctions.forEach((lambdaWorker, tierIndex) => {
       // Each tier consumes its own queue. The last tier also gets the DLQ
       // as a disabled event source so failed jobs can be replayed.
       lambdaWorker.addEventSource(
@@ -200,6 +202,8 @@ export class LambdaWorker extends Construct {
         );
       }
     });
+    this.lambdaFunctions = lambdaFunctions;
+    this.grantPrincipal = mainLambda.grantPrincipal;
 
     // Add alerting
 
@@ -210,6 +214,15 @@ export class LambdaWorker extends Construct {
       cdk.Annotations.of(this).addWarningV2(
         "talis-cdk-constructs:alarmsWithoutActions",
         "Neither alarmTopic nor onCallTeam is set, so this construct's alarms won't notify or page anyone.",
+      );
+    }
+    if (
+      props.queueProps?.approximateNumberOfMessagesVisibleThreshold !==
+      undefined
+    ) {
+      cdk.Annotations.of(this).addWarningV2(
+        "talis-cdk-constructs:deprecatedMessagesVisibleThreshold",
+        "queueProps.approximateNumberOfMessagesVisibleThreshold is ignored: the queue messages visible alarm has been removed.",
       );
     }
 
@@ -225,7 +238,7 @@ export class LambdaWorker extends Construct {
       `${props.name}-dlq-messages-visible-alarm`,
       {
         onCallTeam: props.onCallTeam,
-        runbookUrl: props.runbookUrl,
+        runbookUrl: props.runbookUrls?.dlqMessagesVisible ?? props.runbookUrl,
         alarmName: `${props.name}-dlq-messages-visible-alarm`,
         // The last tier dead-letters to the DLQ.
         lambdaFunctionName:
@@ -254,7 +267,7 @@ export class LambdaWorker extends Construct {
       `${props.name}-queue-message-age-alarm`,
       {
         onCallTeam: props.onCallTeam,
-        runbookUrl: props.runbookUrl,
+        runbookUrl: props.runbookUrls?.queueMessageAge ?? props.runbookUrl,
         alarmName: `${props.name}-queue-message-age-alarm`,
         lambdaFunctionName: lambdaFunctions[0].functionName,
         alarmDescription: `The trigger queue for Lambda worker ${props.name} has messages older than ${approximateAgeOfOldestMessageThreshold.toHumanString()}.`,
@@ -271,30 +284,13 @@ export class LambdaWorker extends Construct {
     );
     queueMessagesAge.addAlarmAction(...alarmActions);
     queueMessagesAge.addOkAction(...alarmActions);
+  }
 
-    // Add an alarm for more than "approximateNumberOfMessagesVisible" messages on the queue
-    const queueMessagesVisable = new TalisAlarm(
-      this,
-      `${props.name}-queue-messages-visible-alarm`,
-      {
-        onCallTeam: props.onCallTeam,
-        runbookUrl: props.runbookUrl,
-        alarmName: `${props.name}-queue-messages-visible-alarm`,
-        lambdaFunctionName: lambdaFunctions[0].functionName,
-        alarmDescription: `The trigger queue for Lambda worker ${props.name} has ${approximateNumberOfMessagesVisibleThreshold} or more messages waiting.`,
-        actionsEnabled: true,
-        metric: approximateNumberOfMessagesVisibleMetric,
-        evaluationPeriods: 1,
-        threshold: approximateNumberOfMessagesVisibleThreshold,
-        comparisonOperator:
-          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-        // Set treatMissingData to IGNORE
-        // Stops alarms with minimal data having false alarms when they transition to this state
-        treatMissingData: cloudwatch.TreatMissingData.IGNORE,
-      },
-    );
-    queueMessagesVisable.addAlarmAction(...alarmActions);
-    queueMessagesVisable.addOkAction(...alarmActions);
+  addEnvironment(key: string, value: string): this {
+    for (const fn of this.lambdaFunctions) {
+      fn.addEnvironment(key, value);
+    }
+    return this;
   }
 
   isContainerLambda(props: LambdaWorkerProps): boolean {
@@ -316,12 +312,15 @@ export class LambdaWorker extends Construct {
     return false;
   }
 
-  createLambdaFunction(props: LambdaWorkerProps): lambda.Function {
+  createLambdaFunction(
+    props: LambdaWorkerProps,
+    role?: iam.IRole,
+  ): lambda.Function {
     if (this.isContainerLambda(props)) {
-      return this.createContainerLambdaFunction(props);
+      return this.createContainerLambdaFunction(props, role);
     }
 
-    return this.createNodejsLambdaFunction(props);
+    return this.createNodejsLambdaFunction(props, role);
   }
 
   private hasContainerLambdaProps(props: LambdaWorkerProps): boolean {
@@ -343,9 +342,11 @@ export class LambdaWorker extends Construct {
 
   private createNodejsLambdaFunction(
     props: LambdaWorkerProps,
+    role?: iam.IRole,
   ): lambda.Function {
     return new lambdaNodeJs.NodejsFunction(this, props.name, {
       functionName: props.name,
+      role,
 
       // Pass through props from lambda props object
       // Documented here https://docs.aws.amazon.com/cdk/api/latest/docs/@aws-cdk_aws-lambda-nodejs.NodejsFunctionProps.html
@@ -378,10 +379,12 @@ export class LambdaWorker extends Construct {
 
   private createContainerLambdaFunction(
     props: LambdaWorkerProps,
+    role?: iam.IRole,
   ): lambda.Function {
     return new lambda.DockerImageFunction(this, props.name, {
       code: this.getContainerLambdaCode(props),
       functionName: props.name,
+      role,
       description: props.lambdaProps.description,
       environment: buildLambdaEnvironment({
         environment: props.lambdaProps.environment,

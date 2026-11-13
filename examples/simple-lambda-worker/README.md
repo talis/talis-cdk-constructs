@@ -9,7 +9,6 @@ The LambdaWorker:
 - is subscribed to the dead letter queue but this trigger is disabled by default
 - allows for the replay of failed jobs with the talis-cli tools awsdlq tool
 - triggers an alarm for failed jobs
-- triggers an alarm when the queue of jobs exceeds a configuarble maximum threshold
 - triggers an alarm when a message waiting on the queue is older than a configurable maximum
 
 Optionionally, the LambdaWorker:
@@ -17,6 +16,14 @@ Optionionally, the LambdaWorker:
 - can have its SQS queue subscribed to an SNS topic.
   - For example all Depot workers subscribe to a "File" topic in a Pub/Sub architecture.
 - can have a filterPolicy specified so that it only receives messages from the SNS topic which it is interested in.
+
+Permissions and environment variables can be added after the LambdaWorker is created, and apply to the lambda of every fallback tier too:
+
+```ts
+bucket.grantRead(worker);
+worker.lambdaQueue.grantSendMessages(worker);
+worker.addEnvironment("QUEUE_URL", worker.lambdaQueueUrl);
+```
 
 ## Construct Diagram
 
